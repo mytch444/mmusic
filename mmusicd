@@ -1,0 +1,184 @@
+#!/bin/bash 
+    
+echo $$ > ~/pid
+
+list=~/.listmusic
+upcoming=~/.upcomingmusic
+
+mplayerfifo=/tmp/mplayerfifo
+stoploop=/tmp/stoploop
+
+playing=/tmp/playing
+prev=/tmp/prev
+
+playing() {
+    if [ -a "$mplayerfifo" ]
+    then
+        rm "$mplayerfifo"
+    fi
+
+    if [ -a "$playing" ]
+    then
+        rm "$playing"
+    fi
+
+    mkfifo "$mplayerfifo"
+    touch "$playing"
+
+    for (( ; ; ))
+    do
+        song=`cat "$playing"`
+        if [ -z "$song" ]
+        then
+            song=`$0 getrandom`
+            echo "$song" > "$playing"
+        fi
+
+        mplayer -really-quiet -slave -input file="$mplayerfifo" "$song"
+        echo "$song" > "$prev"
+
+        next=`cat "$upcoming" | head -1`
+        echo "$next" > "$playing"
+
+        tail -n +2 "$upcoming" > /tmp/tmpupcoming
+        cat /tmp/tmpupcoming > "$upcoming"
+        rm /tmp/tmpupcoming
+
+        if [ -a "$stoploop" ]
+        then
+            break
+        fi
+
+        sleep 0.5
+    done
+
+    rm "$playing"
+    rm "$mplayerfifo"
+}
+
+getrandom() {
+    RAND=`od -d -N2 -An /dev/urandom`
+    LINES=`cat "$list" | wc -l`
+    N=$(( RAND % LINES + 1 ))
+    LINE=`head -$N $list | tail -1`
+    echo "$LINE"
+}
+
+skip() {
+    next=`cat "$upcoming" | head -1`
+    echo "$next" > "$playing"
+    echo "q" > "$mplayerfifo"
+}
+
+exitd() {
+    touch "$stoploop"
+    echo "quit" > "$mplayerfifo"
+
+    if [ -n "$2" ]
+    then
+        sleep $(($2 - 0.5))
+    fi
+
+    sleep 0.5
+
+    if [ -a "$mplayerfifo" ] 
+    then 
+        rm "$mplayerfifo"
+    fi
+
+    rm "$stoploop"
+}
+
+add() {
+    file="$upcoming"
+    if [ "$2" == "list" ]
+    then
+        file="$list"
+    fi
+
+    if [ "$3" == "random" ]
+    then
+        song=`"$0" getrandom`
+        echo "$song" >> "$file"
+    fi
+
+    if [ "$3" == "folder" ]
+    then
+        folder="$4"
+
+        find "$folder" -name "*.*" >> "$file"
+    fi
+
+    if [ "$3" == "file" ]
+    then
+        echo "$4" >> "$file"
+    fi
+
+    if [ "$file" == "$list" ]
+    then
+        sort -f "$file" > "/tmp/sorting"
+        cat "/tmp/sorting" > "$file"
+        rm "/tmp/sorting"
+    fi
+}
+
+if [ "$1" == "play" ]
+then
+    echo "quit" > "$mplayerfifo"
+    sleep 0.25 
+    echo "$2" > "$playing"
+fi
+
+if [ -z "$1" ]
+then
+    playing &
+fi
+
+if [ "$1" == "getrandom" ]
+then
+    getrandom
+fi
+
+if [ "$1" == "clear" ]
+then
+    rm "$upcoming"
+    touch "$upcoming"
+fi
+
+if [ "$1" == "skip" ]
+then
+    skip
+fi
+
+if [ "$1" == "stop" ]
+then
+    exitd 
+fi
+
+if [ "$1" == "add" ]
+then 
+    add
+fi
+
+if [ "$1" == "playing" ]
+then
+    if [ -a "$playing" ]
+    then
+        cat "$playing"
+    fi
+fi
+
+if [ "$1" == "upcoming" ]
+then
+    echo "$upcoming"
+fi
+
+if [ "$1" == "list" ]
+then
+    echo "$list"
+fi
+
+if [ "$1" == "pause" ]
+then
+    echo "pause" > "$mplayerfifo"
+fi
