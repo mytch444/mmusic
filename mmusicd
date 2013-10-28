@@ -1,7 +1,5 @@
 #!/bin/bash 
     
-echo $$ > ~/pid
-
 list=~/.listmusic
 upcoming=~/.upcomingmusic
 
@@ -11,7 +9,17 @@ stoploop=/tmp/stoploop
 playing=/tmp/playing
 prev=/tmp/prev
 
-playing() {
+if [ ! -f "$list" ]
+then
+    touch "$list"
+fi
+
+if [ ! -f "$upcoming" ]
+then
+    touch "$upcoming"
+fi
+
+function startplaying {
     if [ -a "$mplayerfifo" ]
     then
         rm "$mplayerfifo"
@@ -32,6 +40,11 @@ playing() {
         then
             song=`$0 getrandom`
             echo "$song" > "$playing"
+        fi
+        if [ -z "$song" ]
+        then
+            echo "You have no songs in upcoming or list. I will slowly walk away is sorrow now..."
+            exit
         fi
 
         mplayer -really-quiet -slave -input file="$mplayerfifo" "$song"
@@ -56,21 +69,26 @@ playing() {
     rm "$mplayerfifo"
 }
 
-getrandom() {
+function getrandom {
     RAND=`od -d -N2 -An /dev/urandom`
     LINES=`cat "$list" | wc -l`
+    if [ "0" -eq "$LINES" ]
+    then
+        echo ""
+        exit
+    fi
     N=$(( RAND % LINES + 1 ))
     LINE=`head -$N $list | tail -1`
     echo "$LINE"
 }
 
-skip() {
+function skip {
     next=`cat "$upcoming" | head -1`
     echo "$next" > "$playing"
     echo "q" > "$mplayerfifo"
 }
 
-exitd() {
+function exitd {
     touch "$stoploop"
     echo "quit" > "$mplayerfifo"
 
@@ -89,29 +107,29 @@ exitd() {
     rm "$stoploop"
 }
 
-add() {
+function add {
     file="$upcoming"
-    if [ "$2" == "list" ]
+    if [ "$1" == "list" ]
     then
         file="$list"
     fi
 
-    if [ "$3" == "random" ]
+    if [ "$2" == "random" ]
     then
-        song=`"$0" getrandom`
+        song=getrandom
         echo "$song" >> "$file"
     fi
 
-    if [ "$3" == "folder" ]
+    if [ "$2" == "folder" ]
     then
-        folder="$4"
+        folder="$3"
 
         find "$folder" -name "*.*" >> "$file"
     fi
 
-    if [ "$3" == "file" ]
+    if [ "$2" == "file" ]
     then
-        echo "$4" >> "$file"
+        echo "$3" >> "$file"
     fi
 
     if [ "$file" == "$list" ]
@@ -131,7 +149,7 @@ fi
 
 if [ -z "$1" ]
 then
-    playing &
+    startplaying &
 fi
 
 if [ "$1" == "getrandom" ]
@@ -157,7 +175,7 @@ fi
 
 if [ "$1" == "add" ]
 then 
-    add
+    add "$2" "$3" "$4"
 fi
 
 if [ "$1" == "playing" ]

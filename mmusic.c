@@ -43,6 +43,7 @@ void addsong(char *song);
 void modeone();
 void modetwo();
 void startplaying();
+void gotosong(char *song);
 
 int LEN(const char *str) {
     const char *s;
@@ -89,7 +90,6 @@ void error() {
 }
 
 void loadsongs() {
-    int i;
     FILE* p;
 
     char linesc[256];
@@ -102,16 +102,10 @@ void loadsongs() {
 
     char buf[12];
     fgets(buf, sizeof(char) * 12, p);
-    lines = atoi(buf); 
-    if (lines < 1) lines = 1;
-
     pclose(p);
 
-    songs = (char**) malloc(lines * 512 * sizeof(char));
-
-    for (i = 0; i < lines; i++) {
-        songs[i] = (char*) malloc(512 * sizeof(char));
-    }
+    lines = atoi(buf); 
+    if (lines < 1) lines = 1;
 
     p = popen(file, "r");
     if (!p) {
@@ -119,8 +113,9 @@ void loadsongs() {
         return;
     }
 
-    i = 0; 
-    while (i < lines && fgets(songs[i], sizeof(char) * 512, p)) {
+    int i = 0; 
+    songs = (char**) malloc(lines * 512 * sizeof(char));
+    while (i < lines && fgets((songs[i] = (char*) malloc(512 * sizeof(char))), sizeof(char) * 512, p)) {
         songs[i][LEN(songs[i])] = '\0';
         i++;
     }
@@ -166,16 +161,17 @@ int locsong(char *song) {
             return i;
         }
     }
+
+    return -1;
 }
 
 void search() {
-    int i, j;
+    int i, results;
 
     char search[128] = {'\0'};
     *search = *getcommand(search, 128, '/');
-    int results; 
 
-    char linesb[1024] = {'\0'};
+    char linesb[512] = {'\0'};
 
     sprintf(linesb, "%s | grep -ie \"%s\" | wc -l", file, search);
 
@@ -187,10 +183,9 @@ void search() {
 
     char linesrb[8] = {'\0'};
     fgets(linesrb, sizeof(char) * 8, result);
-    results = atoi(linesrb);
     pclose(result);
-
-    char matchs[results][256];
+    
+    results = atoi(linesrb);
 
     char resultsb[1024] = {'\0'}; 
     sprintf(resultsb, "%s | grep -ie \"%s\"", file, search);
@@ -201,6 +196,7 @@ void search() {
         return;
     }
 
+    char matchs[results][256];
     i = 0;
     while (i < results && fgets(matchs[i], sizeof(char) * 256, result)) {
         matchs[i][LEN(matchs[i])] = '\0'; 
@@ -212,9 +208,8 @@ void search() {
     nlocations = results;
     clocations = -1;
 
-    j = 0;
     for (i = 0; i < results; i++) {
-        locations[j++] = locsong(matchs[i]);
+        locations[i] = locsong(matchs[i]);
     }
     
     searchn(1);
@@ -238,21 +233,30 @@ void searchn(int n) {
     if (clocations > nlocations - 1) clocations = 0;
     if (clocations < 0) clocations = nlocations - 1;
 
-    cursor = rmax / 2;
-    offset = locations[clocations] - rmax / 2;
+    if (locations[clocations] < rmax - 3) offset = 0;
+    else if (locations[clocations] > lines - rmax - 3) offset = lines - rmax - 3;
+    else offset = locations[clocations] - rmax / 2;
 
-    if (locations[clocations] < rmax - 3) {
-        cursor = locations[clocations];
-        offset = 0;
-    } else if (locations[clocations] > lines - rmax - 3) {
-        cursor = locations[clocations];
-        offset = lines - rmax - 3;
-    }
+    cursor = locations[clocations] - offset;
 
     char buf[128];
     sprintf(buf, "%i of %i", clocations + 1, nlocations);
     clearrow(rmax - 1);
     drawstring(buf, rmax - 1, 0);
+}
+
+void gotosong(char *song) {
+    int loc = locsong(song);
+
+    if (loc < rmax - 3) {
+        offset = 0;
+    } else if (loc > lines - (rmax - 3)) {
+        offset = lines - (rmax - 3);
+    } else {
+        offset = loc - (rmax - 3) / 2;
+    }
+
+    cursor = loc - offset;
 }
 
 void modeone() {
@@ -281,9 +285,27 @@ void modetwo() {
     loadsongs();
 }
 
+char* currentplayingsong(char playing[256]) {
+    FILE *playingf = popen(playingcommand, "r");
+
+    if (!playingf) error(); 
+    else {
+        fgets(playing, sizeof(char) * 256, playingf);
+        playing[LEN(playing)] = '\0';
+    }
+
+    return playing;
+}
+
+void gotoplaying() {
+    char playing[256] = {'\0'};
+    *playing = *currentplayingsong(playing);
+    gotosong(playing);
+}
+
 int main(int argc, char *argv[]) {
     WINDOW *wnd;
-    int j;
+    int i;
     char d;
 
     wnd = initscr();
@@ -295,10 +317,11 @@ int main(int argc, char *argv[]) {
     refresh();
 
     file = listmusiclist;
-    currentmode = 1;
 
     loadsongs();
 
+    currentmode = 1;
+    
     offset = 0;
     oldoffset = -1;
     cursor = 0;
@@ -313,6 +336,7 @@ int main(int argc, char *argv[]) {
     init_pair(2, COLOR_BLACK, COLOR_BLUE);
 
     startplaying();
+    gotoplaying();
 
     while (1) {
         if (d == 'q') break;
@@ -331,20 +355,21 @@ int main(int argc, char *argv[]) {
         if (d == 'N') searchn(-1);
         if (d == '1') modeone();
         if (d == '2') modetwo();
+        if (d == 's') gotoplaying();
 
         if (cursor < 0) {
-            if (rmax - 3 > lines) {
-                cursor = lines - 1;
-                offset = 0;
-            } else {
-                cursor = rmax - 3;
-                offset -= rmax;
-            }
+            cursor = rmax - 3;
+            offset -= rmax;
+            if (rmax - 3 > lines - 1) cursor = lines - 1;
         }
 
-        if (cursor > rmax - 3 || offset + cursor > lines - 1) {
+        if (cursor > rmax - 3) {
             cursor = 0;
             offset += rmax;
+        }
+
+        if (cursor > lines - 1) {
+            cursor = 0;
         }
 
         if (offset < 0) {
@@ -357,30 +382,23 @@ int main(int argc, char *argv[]) {
         }
 
         if (oldoffset != offset) {
+            oldoffset = offset;
             oldcursor = -1;
             clear();
-            int j;
-            for (j = offset; songs[j] && j - offset < rmax - 2; j++) {
-                drawstring(songs[j], j - offset, 2);
+            for (i = offset; songs[i] && i - offset < rmax - 2; i++) {
+                drawstring(songs[i], i - offset, 2);
             }
         }
-        oldoffset = offset;
 
         color_set(2, NULL); 
 
         char buf[256] = {'\0'};
-
         sprintf(buf, "= %s", songs[offset + cursor]);
         drawfullstring(buf, cursor, 0);
 
-        FILE *playingf = popen(playingcommand, "r");
-
-        char playing[256];
-        if (!playingf) error(); 
-        else {
-            fgets(playing, sizeof playing, playingf);
-            drawfullstring(playing, rmax - 2, 0);
-        }
+        char playing[256] = {'\0'};
+        *playing = *currentplayingsong(playing);
+        drawfullstring(playing, rmax - 2, 0);
 
         color_set(1, NULL); 
 
