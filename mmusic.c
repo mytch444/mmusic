@@ -3,8 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 
+int MODE_LIST               = 1;
+int MODE_UPCOMING           = 2;
+
 char *pausecommand          = "mmusicd pause";
 char *skipcommand           = "mmusicd skip";
+char *prevcommand           = "mmusicd prev";
 char *playcommand           = "mmusicd play \"%s\"";
 char *addupcomingcommand    = "mmusicd add upcoming file \"%s\"";
 char *playingcommand        = "mmusicd playing";
@@ -12,6 +16,26 @@ char *linescommand          = "%s | wc -l";
 char *startplayingcommand   = "if [ -z \"$(mmusicd playing)\" ]; then mmusicd; fi";
 char *listmusiclist         = "cat $(mmusicd list)";
 char *listmusicupcoming     = "cat $(mmusicd upcoming)";
+char *prefcommandfile       = "cat $(mmusicd preffile)";
+
+char quitkey                = 'q';
+char pausekey               = 'p';
+char downkey                = 'j';
+char upkey                  = 'k';
+char startkey               = 'H';
+char endkey                 = 'L';
+char pagedownkey            = 'J';
+char pageupkey              = 'K';
+char playsongkey            = '\n';
+char addsongkey             = 'a';
+char skipkey                = 'l';
+char prevkey                = 'h';
+char searchkey              = '/';
+char searchnextkey          = 'n';
+char searchbackkey          = 'N';
+char modeonekey             = '1';
+char modetwokey             = '2';
+char gotoplayingkey         = 's';
 
 int rmax, cmax;
 char **songs;
@@ -60,16 +84,17 @@ void draw(char dc, int r, int c) {
 }
 
 void drawstring(char *string, int r, int c) {
-    int i;
-    for (i = 0; i < LEN(string); i++) {
-        draw(string[i], r, c + i);
-    }
+    mvaddstr(r, c, string);
 }
 
 void drawfullstring(char *string, int r, int c) {
-    int i;
     drawstring(string, r, c);
-    for (i = LEN(string); i < cmax; i++) draw(' ', r, c + i);
+    char space[cmax - LEN(string) + 1];
+    int i;
+    for (i = 0; i < cmax - LEN(string); i++) space[i] = ' ';
+    space[i] = '\0';
+
+    drawstring(space, r, c + LEN(string));
 }
 
 void clearrow(int r) {
@@ -260,7 +285,7 @@ void gotosong(char *song) {
 }
 
 void modeone() {
-    if (currentmode == 1) return;
+    if (currentmode == MODE_LIST) return;
     currentmode = 1; 
     upcomingcursor = cursor;
     upcomingoffset = offset;
@@ -273,7 +298,7 @@ void modeone() {
 }
 
 void modetwo() {
-    if (currentmode == 2) return;
+    if (currentmode == MODE_UPCOMING) return;
     currentmode = 2;
     listcursor = cursor;
     listoffset = offset;
@@ -298,15 +323,65 @@ char* currentplayingsong(char playing[256]) {
 }
 
 void gotoplaying() {
+    if (currentmode == MODE_UPCOMING) return; 
     char playing[256] = {'\0'};
     *playing = *currentplayingsong(playing);
     gotosong(playing);
+}
+
+void loadpref() {
+    FILE  *p;
+
+    p = popen(prefcommandfile, "r");
+    if (!p) {
+        error();
+        return;
+    }
+
+    while (1) {
+        char line[256] = {'\0'};
+        if (!fgets(line, sizeof(char) * 256, p)) break;
+        if (line[0] == '#') continue;
+
+        char command[256] = {'\0'};
+        char keystring[10] = {'\0'};
+
+        int i;
+        for (i = 0; line[i] && line[i] != '='; i++) command[i] = line[i];
+        int keystarts = ++i;
+        for (; line[i] && line[i] != '\n'; i++) keystring[i - keystarts] = line[i];
+
+        char key = '\0';
+        if (keystring[0] == '\\' && keystring[1] == 'n') key = '\n';
+        else key = keystring[0];
+
+        if (strcmp(command, "quitkey") == 0)        quitkey = key;
+        if (strcmp(command, "pausekey") == 0)       pausekey = key;
+        if (strcmp(command, "downkey") == 0)        downkey = key;
+        if (strcmp(command, "upkey") == 0)          upkey = key;
+        if (strcmp(command, "startkey") == 0)       startkey = key;
+        if (strcmp(command, "endkey") == 0)         endkey = key;
+        if (strcmp(command, "pagedownkey") == 0)    pagedownkey = key;
+        if (strcmp(command, "pageupkey") == 0)      pageupkey = key;
+        if (strcmp(command, "playsongkey") == 0)    playsongkey = key;
+        if (strcmp(command, "addsongkey") == 0)     addsongkey = key;
+        if (strcmp(command, "skipkey") == 0)        skipkey = key;
+        if (strcmp(command, "prevkey") == 0)        prevkey = key;
+        if (strcmp(command, "searchkey") == 0)      searchkey = key;
+        if (strcmp(command, "searchnextkey") == 0)  searchnextkey = key;
+        if (strcmp(command, "searchbackkey") == 0)  searchbackkey = key;
+        if (strcmp(command, "modeonekey") == 0)     modeonekey = key;
+        if (strcmp(command, "modetwokey") == 0)     modetwokey = key;
+        if (strcmp(command, "gotoplayingkey") == 0) gotoplayingkey = key;
+    }
 }
 
 int main(int argc, char *argv[]) {
     WINDOW *wnd;
     int i;
     char d;
+
+    loadpref();
 
     wnd = initscr();
     cbreak();
@@ -320,8 +395,8 @@ int main(int argc, char *argv[]) {
 
     loadsongs();
 
-    currentmode = 1;
-    
+    currentmode = MODE_UPCOMING;
+
     offset = 0;
     oldoffset = -1;
     cursor = 0;
@@ -339,23 +414,24 @@ int main(int argc, char *argv[]) {
     gotoplaying();
 
     while (1) {
-        if (d == 'q') break;
-        if (d == 'p') system(pausecommand); 
-        if (d == 'j') cursor++;
-        if (d == 'k') cursor--;
-        if (d == 'H') offset = cursor = 0;
-        if (d == 'L') offset = cursor = -1; 
-        if (d == 'J') offset += rmax - 2;
-        if (d == 'K') offset -= rmax - 2;
-        if (d == '\n') playsong(songs[offset + cursor++]);
-        if (d == 'a') addsong(songs[offset + cursor++]);
-        if (d == 'l') system(skipcommand);
-        if (d == '/') search(); 
-        if (d == 'n') searchn(1);
-        if (d == 'N') searchn(-1);
-        if (d == '1') modeone();
-        if (d == '2') modetwo();
-        if (d == 's') gotoplaying();
+        if (d == quitkey) break;
+        if (d == pausekey) system(pausecommand); 
+        if (d == downkey) cursor++;
+        if (d == upkey) cursor--;
+        if (d == startkey) offset = cursor = 0;
+        if (d == endkey) offset = cursor = -1; 
+        if (d == pagedownkey) offset += rmax - 2;
+        if (d == pageupkey) offset -= rmax - 2;
+        if (d == playsongkey) playsong(songs[offset + cursor++]);
+        if (d == addsongkey) addsong(songs[offset + cursor++]);
+        if (d == skipkey) system(skipcommand);
+        if (d == prevkey) system(prevcommand);
+        if (d == searchkey) search(); 
+        if (d == searchnextkey) searchn(1);
+        if (d == searchbackkey) searchn(-1);
+        if (d == modeonekey) modeone();
+        if (d == modetwokey) modetwo();
+        if (d == gotoplayingkey) gotoplaying();
 
         if (cursor < 0) {
             cursor = rmax - 3;

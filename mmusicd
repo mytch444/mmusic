@@ -1,5 +1,7 @@
 #!/bin/bash 
     
+echo $$ > ~/pid
+
 list=~/.listmusic
 upcoming=~/.upcomingmusic
 
@@ -9,15 +11,13 @@ stoploop=/tmp/stoploop
 playing=/tmp/playing
 prev=/tmp/prev
 
-if [ ! -f "$list" ]
-then
-    touch "$list"
-fi
+pref=~/.mmusicpref
 
-if [ ! -f "$upcoming" ]
-then
-    touch "$upcoming"
-fi
+function play {
+    echo "quit" > "$mplayerfifo"
+    sleep 0.25 
+    echo "$1" > "$playing"
+}
 
 function startplaying {
     if [ -a "$mplayerfifo" ]
@@ -40,11 +40,6 @@ function startplaying {
         then
             song=`$0 getrandom`
             echo "$song" > "$playing"
-        fi
-        if [ -z "$song" ]
-        then
-            echo "You have no songs in upcoming or list. I will slowly walk away is sorrow now..."
-            exit
         fi
 
         mplayer -really-quiet -slave -input file="$mplayerfifo" "$song"
@@ -72,11 +67,6 @@ function startplaying {
 function getrandom {
     RAND=`od -d -N2 -An /dev/urandom`
     LINES=`cat "$list" | wc -l`
-    if [ "0" -eq "$LINES" ]
-    then
-        echo ""
-        exit
-    fi
     N=$(( RAND % LINES + 1 ))
     LINE=`head -$N $list | tail -1`
     echo "$LINE"
@@ -86,6 +76,11 @@ function skip {
     next=`cat "$upcoming" | head -1`
     echo "$next" > "$playing"
     echo "q" > "$mplayerfifo"
+}
+
+function prev {
+    song=`cat "$prev"`
+    play "$song"
 }
 
 function exitd {
@@ -107,44 +102,51 @@ function exitd {
     rm "$stoploop"
 }
 
+function addfolder {
+    find "$2" -name "*.*" >> "$1"
+}
+
+function addfile {
+    echo "$2" >> "$1"
+}
+
+function sortlist {
+    sort -f "$list" | uniq > "/tmp/sorting"
+    cat "/tmp/sorting" > "$list"
+    rm "/tmp/sorting"
+}
+
 function add {
     file="$upcoming"
-    if [ "$1" == "list" ]
-    then
-        file="$list"
-    fi
+    command="addfile"
+    
+    for arg in "$@"
+    do
+        if [ "$arg" == "add" ]; then
+            continue
+        elif [ "$arg" == "list" ]; then
+            file="$list"
+        elif [ "$arg" == "upcoming" ]; then
+            file="$upcoming"
+        elif [ "$arg" == "random" ]; then
+            echo "$(getrandom)" >> "$file"
+        elif [ "$arg" == "file" ]; then
+            command="addfile"
+        elif [ "$arg" == "folder" ]; then
+            command="addfolder"
+        else
+            "$command" "$file" "$arg"
+        fi
+    done
 
-    if [ "$2" == "random" ]
-    then
-        song=getrandom
-        echo "$song" >> "$file"
-    fi
-
-    if [ "$2" == "folder" ]
-    then
-        folder="$3"
-
-        find "$folder" -name "*.*" >> "$file"
-    fi
-
-    if [ "$2" == "file" ]
-    then
-        echo "$3" >> "$file"
-    fi
-
-    if [ "$file" == "$list" ]
-    then
-        sort -f "$file" > "/tmp/sorting"
-        cat "/tmp/sorting" > "$file"
-        rm "/tmp/sorting"
+    if [ "$file" == "$list" ]; then
+        sortlist
     fi
 }
 
 if [ "$1" == "play" ]
 then
-    echo "quit" > "$mplayerfifo"
-    sleep 0.25 
-    echo "$2" > "$playing"
+    play
 fi
 
 if [ -z "$1" ]
@@ -168,6 +170,11 @@ then
     skip
 fi
 
+if [ "$1" == "prev" ]
+then
+    prev
+fi
+
 if [ "$1" == "stop" ]
 then
     exitd 
@@ -175,7 +182,7 @@ fi
 
 if [ "$1" == "add" ]
 then 
-    add "$2" "$3" "$4"
+    add "$@"
 fi
 
 if [ "$1" == "playing" ]
@@ -199,4 +206,9 @@ fi
 if [ "$1" == "pause" ]
 then
     echo "pause" > "$mplayerfifo"
+fi
+
+if [ "$1" == "preffile" ]
+then
+    echo "$pref"
 fi
