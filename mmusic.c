@@ -17,6 +17,7 @@ char *startplayingcommand   = "if [ -z \"$(mmusicd playing)\" ]; then mmusicd; f
 char *listmusiclist         = "cat $(mmusicd list)";
 char *listmusicupcoming     = "cat $(mmusicd upcoming)";
 char *prefcommandfile       = "cat $(mmusicd preffile)";
+char *shufflecommand        = "mmusicd shuffle";
 
 char quitkey                = 'q';
 char pausekey               = 'p';
@@ -36,6 +37,7 @@ char searchbackkey          = 'N';
 char modeonekey             = '1';
 char modetwokey             = '2';
 char gotoplayingkey         = 's';
+char shufflekey             = 'S';
 
 int rmax, cmax;
 char **songs;
@@ -285,27 +287,25 @@ void gotosong(char *song) {
 }
 
 void modeone() {
-    if (currentmode == MODE_LIST) return;
-    currentmode = 1; 
+    currentmode = MODE_LIST; 
     upcomingcursor = cursor;
     upcomingoffset = offset;
     cursor = listcursor;
     offset = listoffset;
     oldoffset = -1;
-    oldcursor = cursor;
+    oldcursor = -1;
     file = listmusiclist;
     loadsongs();
 }
 
 void modetwo() {
-    if (currentmode == MODE_UPCOMING) return;
-    currentmode = 2;
+    currentmode = MODE_UPCOMING;
     listcursor = cursor;
     listoffset = offset;
     cursor = upcomingcursor;
     offset = upcomingoffset;
     oldoffset = -1;
-    oldcursor = cursor;
+    oldcursor = -1;
     file = listmusicupcoming;
     loadsongs();
 }
@@ -373,7 +373,14 @@ void loadpref() {
         if (strcmp(command, "modeonekey") == 0)     modeonekey = key;
         if (strcmp(command, "modetwokey") == 0)     modetwokey = key;
         if (strcmp(command, "gotoplayingkey") == 0) gotoplayingkey = key;
+        if (strcmp(command, "shufflekey") == 0)     shufflekey = key;
     }
+}
+
+void shuffle() {
+    system(shufflecommand);
+    loadsongs();
+    oldoffset = -1;
 }
 
 int main(int argc, char *argv[]) {
@@ -432,6 +439,7 @@ int main(int argc, char *argv[]) {
         if (d == modeonekey) modeone();
         if (d == modetwokey) modetwo();
         if (d == gotoplayingkey) gotoplaying();
+        if (d == shufflekey) shuffle();
 
         if (cursor < 0) {
             cursor = rmax - 3;

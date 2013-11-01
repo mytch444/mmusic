@@ -14,9 +14,14 @@ prev=/tmp/prev
 pref=~/.mmusicpref
 
 function play {
+    old=`cat "$upcoming"`
+    echo "$2" > /tmp/newup
+    if [ ! -z "$old" ]; then
+        echo "$old" >> /tmp/newup
+    fi
+    cat /tmp/newup > "$upcoming"
+    rm /tmp/newup
     echo "quit" > "$mplayerfifo"
-    sleep 0.25 
-    echo "$1" > "$playing"
 }
 
 function startplaying {
@@ -25,32 +30,30 @@ function startplaying {
         rm "$mplayerfifo"
     fi
 
-    if [ -a "$playing" ]
-    then
-        rm "$playing"
-    fi
-
     mkfifo "$mplayerfifo"
-    touch "$playing"
+    
+    if [ ! -a "$playing" ]
+    then
+        touch "$playing"
+    fi
 
     for (( ; ; ))
     do
         song=`cat "$playing"`
         if [ -z "$song" ]
         then
-            song=`$0 getrandom`
-            echo "$song" > "$playing"
+            song=`popupcoming`
         fi
 
+        if [ -z "$song" ]
+        then
+            song=`$0 getrandom`
+        fi
+
+        echo "$song" > "$playing"
         mplayer -really-quiet -slave -input file="$mplayerfifo" "$song"
+        cat /dev/null > "$playing" 
         echo "$song" > "$prev"
-
-        next=`cat "$upcoming" | head -1`
-        echo "$next" > "$playing"
-
-        tail -n +2 "$upcoming" > /tmp/tmpupcoming
-        cat /tmp/tmpupcoming > "$upcoming"
-        rm /tmp/tmpupcoming
 
         if [ -a "$stoploop" ]
         then
@@ -62,6 +65,15 @@ function startplaying {
 
     rm "$playing"
     rm "$mplayerfifo"
+}
+
+function popupcoming {
+    next=`cat "$upcoming" | head -1`
+    echo "$next"
+
+    tail -n +2 "$upcoming" > /tmp/tmpupcoming
+    cat /tmp/tmpupcoming > "$upcoming"
+    rm /tmp/tmpupcoming
 }
 
 function getrandom {
@@ -119,7 +131,7 @@ function sortlist {
 function add {
     file="$upcoming"
     command="addfile"
-    
+
     for arg in "$@"
     do
         if [ "$arg" == "add" ]; then
@@ -144,9 +156,20 @@ function add {
     fi
 }
 
+function shuffleupcoming {
+    sort -R "$upcoming" > /tmp/shuffle
+    cat /tmp/shuffle > "$upcoming"
+    rm /tmp/shuffle
+}
+
+if [ "$1" == "shuffle" ]
+then
+    shuffleupcoming
+fi
+
 if [ "$1" == "play" ]
 then
-    play
+    play "$@"
 fi
 
 if [ -z "$1" ]
