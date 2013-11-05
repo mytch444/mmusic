@@ -178,7 +178,7 @@ then
     mmusicnd &
 fi
 
-if [ "$1" == "nonetwork" }
+if [ "$1" == "nonetwork" ]
 then
     echo "Starting mmusic daemon"
     startplaying &
