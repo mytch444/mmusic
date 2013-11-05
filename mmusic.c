@@ -2,22 +2,24 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 int MODE_LIST               = 1;
 int MODE_UPCOMING           = 2;
 
-char *pausecommand          = "mmusicd pause";
-char *skipcommand           = "mmusicd skip";
-char *prevcommand           = "mmusicd prev";
-char *playcommand           = "mmusicd play \"%s\"";
-char *addupcomingcommand    = "mmusicd add upcoming file \"%s\"";
-char *playingcommand        = "mmusicd playing";
+char mmusiccommand[256]     = "mmusicd";
+char *pausecommand          = "%s pause";
+char *skipcommand           = "%s skip";
+char *prevcommand           = "%s prev";
+char *playcommand           = "%s play \"%s\"";
+char *addupcomingcommand    = "%s add upcoming file \"%s\"";
+char *playingcommand        = "%s playing";
 char *linescommand          = "%s | wc -l";
-char *startplayingcommand   = "if [ -z \"$(mmusicd playing)\" ]; then mmusicd; fi";
-char *listmusiclist         = "cat $(mmusicd list)";
-char *listmusicupcoming     = "cat $(mmusicd upcoming)";
-char *prefcommandfile       = "cat $(mmusicd preffile)";
-char *shufflecommand        = "mmusicd shuffle";
+//char *startplayingcommand   = "if [ -z \"$(%s playing)\" ]; then %s; fi";
+char *listmusiclist         = "%s list";
+char *listmusicupcoming     = "%s upcoming";
+char *preffilecommand       = "%s preffile";
+char *shufflecommand        = "%s shuffle";
 
 char quitkey                = 'q';
 char pausekey               = 'p';
@@ -42,7 +44,7 @@ char shufflekey             = 'S';
 int rmax, cmax;
 char **songs;
 int lines;
-char *file;
+char file[256];
 int listcursor, listoffset;
 int upcomingcursor, upcomingoffset;
 int currentmode;
@@ -70,6 +72,12 @@ void modeone();
 void modetwo();
 void startplaying();
 void gotosong(char *song);
+void pause();
+void skip();
+void prev();
+void setfile(char *f);
+void *update();
+void drawbar();
 
 int LEN(const char *str) {
     const char *s;
@@ -82,11 +90,10 @@ void draw(char dc, int r, int c) {
     move(r, c);
     delch();
     insch(dc);
-    refresh();
 }
 
 void drawstring(char *string, int r, int c) {
-    mvaddstr(r, c, string);
+    mvaddnstr(r, c, string, cmax - c);
 }
 
 void drawfullstring(char *string, int r, int c) {
@@ -100,13 +107,7 @@ void drawfullstring(char *string, int r, int c) {
 }
 
 void clearrow(int r) {
-    if (r > rmax) return;
-    int c;
-    for (c = 0; c < cmax; c++) {
-        move(r, c);
-        delch();
-    }
-    refresh();
+    drawfullstring(" ", r, 0);
 }
 
 void error() {
@@ -177,7 +178,7 @@ char* getcommand(char *buf, int l, char start) {
 
 void playsong(char *s) {
     char buf[512] = {'\0'};
-    sprintf(buf, playcommand, s);
+    sprintf(buf, playcommand, mmusiccommand, s);
     system(buf);
 }
 
@@ -244,14 +245,16 @@ void search() {
 
 void addsong(char *song) {
     char buf[512] = {'\0'};
-    sprintf(buf, addupcomingcommand, song);
+    sprintf(buf, addupcomingcommand, mmusiccommand, song);
     system(buf);
 }
 
 void startplaying() {
+/*   
     system(startplayingcommand);
     clearrow(rmax - 1);
     drawstring(startplayingcommand, rmax - 1, 0);
+    */
 }
 
 void searchn(int n) {
@@ -294,8 +297,11 @@ void modeone() {
     offset = listoffset;
     oldoffset = -1;
     oldcursor = -1;
-    file = listmusiclist;
+    setfile(listmusiclist);
+    
     loadsongs();
+    clear();
+    drawbar();
 }
 
 void modetwo() {
@@ -306,16 +312,21 @@ void modetwo() {
     offset = upcomingoffset;
     oldoffset = -1;
     oldcursor = -1;
-    file = listmusicupcoming;
+    setfile(listmusicupcoming);
+   
     loadsongs();
+    clear();
+    drawbar();
 }
 
 char* currentplayingsong(char playing[256]) {
-    FILE *playingf = popen(playingcommand, "r");
+    char filename[1024];
+    sprintf(filename, playingcommand, mmusiccommand);
+    FILE *playingf = popen(filename, "r");
 
     if (!playingf) error(); 
     else {
-        fgets(playing, sizeof(char) * 256, playingf);
+        fgets(playing, sizeof(char) * (cmax - 2), playingf);
         playing[LEN(playing)] = '\0';
     }
 
@@ -332,7 +343,9 @@ void gotoplaying() {
 void loadpref() {
     FILE  *p;
 
-    p = popen(prefcommandfile, "r");
+    char filename[1024];
+    sprintf(filename, preffilecommand, mmusiccommand);
+    p = popen(filename, "r");
     if (!p) {
         error();
         return;
@@ -378,15 +391,64 @@ void loadpref() {
 }
 
 void shuffle() {
-    system(shufflecommand);
+    char shuffletext[1024];
+    sprintf(shuffletext, shufflecommand, mmusiccommand);
+    system(shuffletext);
     loadsongs();
     oldoffset = -1;
+}
+
+void pause() {
+    char pausetext[1024];
+    sprintf(pausetext, pausecommand, mmusiccommand);
+    system(pausetext);
+}
+
+void skip() {
+    char skiptext[1024];
+    sprintf(skiptext, skipcommand, mmusiccommand);
+    system(skiptext);
+}
+
+void prev() {
+    char prevtext[1024];
+    sprintf(prevtext, prevcommand, mmusiccommand);
+    system(prevtext);
+}
+
+void setfile(char *f) {
+    sprintf(file, f, mmusiccommand);
+}
+
+void drawbar() {
+    char playing[256];
+    *playing = *currentplayingsong(playing);
+
+    color_set(2, NULL); 
+    drawfullstring(playing, rmax - 2, 0);
+    color_set(1, NULL); 
+}
+
+void *update() {
+    while (1) {
+        drawbar();
+        refresh();
+        sleep(3);
+    }
 }
 
 int main(int argc, char *argv[]) {
     WINDOW *wnd;
     int i;
     char d;
+
+    if (argc > 1) {
+        char *host = argv[1];
+        char *port = argv[2];
+        int i;
+        for (i = 0; mmusiccommand[i]; i++) mmusiccommand[i] = '\0';
+        sprintf(mmusiccommand, "mmusicn %s %s", host, port);
+    }
 
     loadpref();
 
@@ -395,14 +457,14 @@ int main(int argc, char *argv[]) {
     noecho();
     start_color();
     getmaxyx(wnd, rmax, cmax);
+    curs_set(0);
     clear();
     refresh();
 
-    file = listmusiclist;
+    currentmode = MODE_LIST;
 
+    setfile(listmusiclist);
     loadsongs();
-
-    currentmode = MODE_UPCOMING;
 
     offset = 0;
     oldoffset = -1;
@@ -417,12 +479,15 @@ int main(int argc, char *argv[]) {
     init_pair(1, COLOR_WHITE, COLOR_BLACK);
     init_pair(2, COLOR_BLACK, COLOR_BLUE);
 
-    startplaying();
+    pthread_t pth;
+    pthread_create(&pth, NULL, update, "updater");
+
+    //startplaying();
     gotoplaying();
 
     while (1) {
         if (d == quitkey) break;
-        if (d == pausekey) system(pausecommand); 
+        if (d == pausekey) pause(); 
         if (d == downkey) cursor++;
         if (d == upkey) cursor--;
         if (d == startkey) offset = cursor = 0;
@@ -431,8 +496,8 @@ int main(int argc, char *argv[]) {
         if (d == pageupkey) offset -= rmax - 2;
         if (d == playsongkey) playsong(songs[offset + cursor++]);
         if (d == addsongkey) addsong(songs[offset + cursor++]);
-        if (d == skipkey) system(skipcommand);
-        if (d == prevkey) system(prevcommand);
+        if (d == skipkey) skip();
+        if (d == prevkey) prev();
         if (d == searchkey) search(); 
         if (d == searchnextkey) searchn(1);
         if (d == searchbackkey) searchn(-1);
@@ -468,33 +533,34 @@ int main(int argc, char *argv[]) {
         if (oldoffset != offset) {
             oldoffset = offset;
             oldcursor = -1;
-            clear();
             for (i = offset; songs[i] && i - offset < rmax - 2; i++) {
+                clearrow(i - offset); 
                 drawstring(songs[i], i - offset, 2);
             }
         }
 
+        char buf[256];
+        
+        if (oldcursor != -1) {
+//            sprintf(buf, "  %s", songs[offset + oldcursor]);
+            clearrow(oldcursor);
+            drawfullstring(songs[offset + oldcursor], oldcursor, 2);
+        }
+        
+        oldcursor = cursor;
+
         color_set(2, NULL); 
-
-        char buf[256] = {'\0'};
-        sprintf(buf, "= %s", songs[offset + cursor]);
-        drawfullstring(buf, cursor, 0);
-
-        char playing[256] = {'\0'};
-        *playing = *currentplayingsong(playing);
-        drawfullstring(playing, rmax - 2, 0);
-
+     //   sprintf(buf, "= %s", songs[offset + cursor]);
+        drawstring("= ", cursor, 0); 
+        drawfullstring(songs[offset + cursor], cursor, 2);
         color_set(1, NULL); 
 
-        if (oldcursor != -1) {
-            sprintf(buf, "  %s", songs[offset + oldcursor]);
-            drawfullstring(buf, oldcursor, 0);
-        }
-
-        oldcursor = cursor;
+        refresh();
 
         d = getch();
     }
+
+    pthread_cancel(pth);
 
     endwin();
 }

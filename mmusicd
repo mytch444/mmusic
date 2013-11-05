@@ -1,7 +1,5 @@
 #!/bin/bash 
     
-echo $$ > ~/pid
-
 list=~/.listmusic
 upcoming=~/.upcomingmusic
 
@@ -174,6 +172,15 @@ fi
 
 if [ -z "$1" ]
 then
+    echo "Starting mmusic daemon"
+    startplaying &
+    echo "Starting mmusic network server daemon"
+    mmusicnd &
+fi
+
+if [ "$1" == "nonetwork" }
+then
+    echo "Starting mmusic daemon"
     startplaying &
 fi
 
@@ -218,12 +225,12 @@ fi
 
 if [ "$1" == "upcoming" ]
 then
-    echo "$upcoming"
+    cat "$upcoming"
 fi
 
 if [ "$1" == "list" ]
 then
-    echo "$list"
+    cat "$list"
 fi
 
 if [ "$1" == "pause" ]
@@ -233,5 +240,5 @@ fi
 
 if [ "$1" == "preffile" ]
 then
-    echo "$pref"
+    cat "$pref"
 fi

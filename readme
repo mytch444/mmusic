@@ -4,3 +4,4 @@ A simple music player that uses mplayer as a slave to play its music.
 The daemon (mmusicd) is a bash script that will play songs (as filenames) from a upcoming file ("~/.upcomingmusic") and plays that, if this file is empty it will pick as random song from list file ("~/.listmusic") and play that. The currently playing song is written to a playing file ("/tmp/playing") and so on. The help menu is the code at the moment.
 The ncurses ui that is build to use the daemon allows you to navigate through the list file and upcoming file and add files to the upcoming or play them strait away. Again the code is the manual.
 There is now a preferences file that is created in your home directory to make it easier to assign keys to commands and soon other preferences. It is at "~/.mmusicpref"
+When starting the daemon a netorking server daemon is also started, this allows other people to interact with the server by running mmusic "ip" "port", the port is 4444 by default.
