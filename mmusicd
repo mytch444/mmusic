@@ -220,7 +220,9 @@ then
     if [ -a "$playing" ]
     then
         cat "$playing"
+        exit
     fi
+    echo "Not playing"
 fi
 
 if [ "$1" == "upcoming" ]

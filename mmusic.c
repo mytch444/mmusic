@@ -44,7 +44,7 @@ char shufflekey             = 'S';
 int rmax, cmax;
 char **songs;
 int lines;
-char file[256];
+char file[1024];
 int listcursor, listoffset;
 int upcomingcursor, upcomingoffset;
 int currentmode;
@@ -120,7 +120,7 @@ void error() {
 void loadsongs() {
     FILE* p;
 
-    char linesc[256];
+    char linesc[1024];
     sprintf(linesc, linescommand, file);
     p = popen(linesc, "r");
     if (!p) {
@@ -224,9 +224,9 @@ void search() {
         return;
     }
 
-    char matchs[results][256];
+    char matchs[results][1024];
     i = 0;
-    while (i < results && fgets(matchs[i], sizeof(char) * 256, result)) {
+    while (i < results && fgets(matchs[i], sizeof(char) * 1024, result)) {
         matchs[i][LEN(matchs[i])] = '\0'; 
         i++;
     }
@@ -319,23 +319,27 @@ void modetwo() {
     drawbar();
 }
 
-char* currentplayingsong(char playing[256]) {
+char* currentplayingsong(char playing[1024]) {
     char filename[1024];
     sprintf(filename, playingcommand, mmusiccommand);
     FILE *playingf = popen(filename, "r");
 
-    if (!playingf) error(); 
-    else {
+    if (!playingf) {
+        clearrow(rmax - 1);
+        drawstring("Could not get currently playing song for some fucking annoying unknown reason. Thankyou.", rmax - 1, 0);
+    } else {
         fgets(playing, sizeof(char) * (cmax - 2), playingf);
         playing[LEN(playing)] = '\0';
     }
+
+    pclose(playingf);
 
     return playing;
 }
 
 void gotoplaying() {
     if (currentmode == MODE_UPCOMING) return; 
-    char playing[256] = {'\0'};
+    char playing[1024] = {'\0'};
     *playing = *currentplayingsong(playing);
     gotosong(playing);
 }
@@ -352,11 +356,11 @@ void loadpref() {
     }
 
     while (1) {
-        char line[256] = {'\0'};
-        if (!fgets(line, sizeof(char) * 256, p)) break;
+        char line[1024] = {'\0'};
+        if (!fgets(line, sizeof(char) * 1024, p)) break;
         if (line[0] == '#') continue;
 
-        char command[256] = {'\0'};
+        char command[1024] = {'\0'};
         char keystring[10] = {'\0'};
 
         int i;
@@ -388,6 +392,8 @@ void loadpref() {
         if (strcmp(command, "gotoplayingkey") == 0) gotoplayingkey = key;
         if (strcmp(command, "shufflekey") == 0)     shufflekey = key;
     }
+
+    pclose(p);
 }
 
 void shuffle() {
@@ -421,7 +427,7 @@ void setfile(char *f) {
 }
 
 void drawbar() {
-    char playing[256];
+    char playing[1024];
     *playing = *currentplayingsong(playing);
 
     color_set(2, NULL); 
@@ -539,10 +545,9 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        char buf[256];
+        char buf[1024];
         
         if (oldcursor != -1) {
-//            sprintf(buf, "  %s", songs[offset + oldcursor]);
             clearrow(oldcursor);
             drawfullstring(songs[offset + oldcursor], oldcursor, 2);
         }
@@ -550,7 +555,6 @@ int main(int argc, char *argv[]) {
         oldcursor = cursor;
 
         color_set(2, NULL); 
-     //   sprintf(buf, "= %s", songs[offset + cursor]);
         drawstring("= ", cursor, 0); 
         drawfullstring(songs[offset + cursor], cursor, 2);
         color_set(1, NULL); 
