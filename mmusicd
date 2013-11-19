@@ -21,11 +21,6 @@ function play {
 }
 
 function startplaying {
-    if [ -a "$mplayerfifo" ]
-    then
-        rm "$mplayerfifo"
-    fi
-
     mkfifo "$mplayerfifo"
     
     if [ ! -a "$playing" ]
@@ -170,14 +165,19 @@ fi
 
 if [ -z "$1" ]
 then
-    echo "Starting mmusic daemon"
+    if [ -a "$mplayerfifo" ]
+    then
+	echo "please kill me first!"
+	echo "     thats $0 stop if you forgot"
+	exit
+    fi
+
     startplaying &
 fi
 
 if [ "$1" == "network" ]
 then
-    echo "Starting mmusic daemon"
-    startplaying &
+    $0
     echo "Starting mmusic network server daemon"
     mmusicnd &
 fi
