@@ -9,8 +9,6 @@ stoploop=/tmp/stoploop
 playing=/tmp/playing
 prev=/tmp/prev
 
-pref=~/.mmusicpref
-
 function play {
     old=`cat "$upcoming"`
     echo "$2" > /tmp/newup
@@ -174,14 +172,14 @@ if [ -z "$1" ]
 then
     echo "Starting mmusic daemon"
     startplaying &
-    echo "Starting mmusic network server daemon"
-    mmusicnd &
 fi
 
-if [ "$1" == "nonetwork" ]
+if [ "$1" == "network" ]
 then
     echo "Starting mmusic daemon"
     startplaying &
+    echo "Starting mmusic network server daemon"
+    mmusicnd &
 fi
 
 if [ "$1" == "getrandom" ]
@@ -240,7 +238,23 @@ then
     echo "pause" > "$mplayerfifo"
 fi
 
-if [ "$1" == "preffile" ]
+if [ "$1" == "--help" -o "$1" == "-h" ]
 then
-    cat "$pref"
+    echo "usage:"
+    echo "   $0 [option]"
+    echo "      no option will start both the music daemon and network daemon"
+    echo "      pause - pauses playing"
+    echo "      list - prints the listmusic file"
+    echo "      upcoming - print the upcoming file"
+    echo "      playing - prints the currently playing song or says 'not playing'"
+    echo "      add [list/upcoming] [file/folder] file-or-folder-to-add"
+    echo "            if affecting list, list will be reordered."
+    echo "      stop - kills the daemon"
+    echo "      prev - plays previous song (a bit buggy at the moment)"
+    echo "      skip - skips current song"
+    echo "      clear - clears the upcoming file"
+    echo "      getrandom - returns a random song from the list file"
+    echo "      network - starts the daemon as well as the networking daemon"
+    echo "      play file - plays file"
+    echo "      shuffle - shuffles the upcoming file"
 fi
