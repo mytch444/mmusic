@@ -1,4 +1,4 @@
-#include <curses.h>
+#include <ncurses.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,7 +22,7 @@ char *preffilecommand       = "%s preffile";
 char *shufflecommand        = "%s shuffle";
 
 typedef struct {
-  char key;
+  int key;
   void (*func)();
 } Key;
 
@@ -57,7 +57,7 @@ void gotosong(char *song);
 void setfile(char *f);
 void *update();
 void drawbar();
-void checkkeys(char key);
+void checkkeys(int key);
 
 void quit();
 void prev();
@@ -424,6 +424,8 @@ void setfile(char *f) {
 }
 
 void drawbar() {
+  if (quitting) return;
+  
   char playing[1024];
   *playing = *currentplayingsong(playing);
   
@@ -433,18 +435,18 @@ void drawbar() {
 }
 
 void *update() {
-  while (1) {
+  while (!quitting) {
     drawbar();
     refresh();
     sleep(3);
   }
 }
 
-void checkkeys(char key) {
+void checkkeys(int key) {
   Key *k;
 
   int lkeys = sizeof(keys) / sizeof(keys[0]);
-  
+
   for (k = keys; k < keys + lkeys; k++) {
     if (key == k->key) {
       k->func();
@@ -456,7 +458,7 @@ void checkkeys(char key) {
 int main(int argc, char *argv[]) {
   WINDOW *wnd;
   int i;
-  char d;
+  int d;
   
   if (argc > 1) {
     char *host = argv[1];
@@ -503,8 +505,17 @@ int main(int argc, char *argv[]) {
   quitting = 0;
   while (1) {
     checkkeys(d);
-    if (quitting) break;
-
+    if (quitting) {
+      break;
+    }
+    
+    /*
+    char str[] = "";
+    sprintf(str, "%i %c", d, d);
+    clearrow(rmax - 1);
+    drawstring(str, rmax - 1, cmax - 10);
+    */
+    
     if (cursor < 0) {
       cursor = rmax - 3;
       offset -= rmax;
@@ -548,8 +559,8 @@ int main(int argc, char *argv[]) {
     oldcursor = cursor;
     
     color_set(2, NULL); 
-    drawstring("= ", cursor, 0); 
     drawfullstring(songs[offset + cursor], cursor, 2);
+    drawstring("= ", cursor, 0);
     color_set(1, NULL); 
     
     refresh();
@@ -558,7 +569,7 @@ int main(int argc, char *argv[]) {
   }
   
   pthread_cancel(pth);
-  
+
   endwin();
 }
 

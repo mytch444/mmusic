@@ -31,5 +31,6 @@ static Key keys[] = {
   { KEY_UP,      up },
   { CTR('n'),    down },
   { CTR('p'),    up },
-  { CTR('v'),    pagedown },
+  { CTR('f'),    pagedown },
+  { CTR('b'),    pageup },
 };

@@ -1,4 +1,4 @@
 music: mmusic.c
-	gcc -o mmusic mmusic.c -lcurses -lpthread
+	gcc -o mmusic mmusic.c -lncursesw -lpthread
 clean:
 	rm mmusic
