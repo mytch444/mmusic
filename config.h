@@ -26,6 +26,7 @@ static Key keys[] = {
   { 'N',    searchback },
   { '1',    modeone },
   { '2',    modetwo },
+  { 'd',    removecursor },
   
   { KEY_DOWN,    down },
   { KEY_UP,      up },

@@ -20,6 +20,7 @@ char *listmusiclist         = "%s list";
 char *listmusicupcoming     = "%s upcoming";
 char *preffilecommand       = "%s preffile";
 char *shufflecommand        = "%s shuffle";
+char *removecommand         = "%s remove %s \"%s\"";
 
 typedef struct {
   int key;
@@ -80,6 +81,8 @@ void searchnext();
 void searchback();
 void gotoplaying();
 void shuffle();
+void removecursor();
+void updatelist();
 
 #include "config.h"
 
@@ -348,9 +351,7 @@ void modeone() {
   oldcursor = -1;
   setfile(listmusiclist);
   
-  loadsongs();
-  clear();
-  drawbar();
+  updatelist();
 }
 
 void modetwo() {
@@ -363,9 +364,7 @@ void modetwo() {
   oldcursor = -1;
   setfile(listmusicupcoming);
   
-  loadsongs();
-  clear();
-  drawbar();
+  updatelist();
 }
 
 char* currentplayingsong(char playing[1024]) {
@@ -453,6 +452,22 @@ void checkkeys(int key) {
       return;
     }
   }
+}
+
+void removecursor() {
+  char buf[1024] = "";
+  // I don't think I want to to be able to remove from list
+  sprintf(buf, removecommand, mmusiccommand, "upcoming", songs[offset + cursor]);
+  system(buf);
+
+  updatelist();
+}
+
+void updatelist() {
+  oldoffset = -1;
+  loadsongs();
+  clear();
+  drawbar();
 }
 
 int main(int argc, char *argv[]) {

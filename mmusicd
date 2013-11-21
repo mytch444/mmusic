@@ -11,7 +11,8 @@ prev=/tmp/prev
 
 function play {
     old=`cat "$upcoming"`
-    echo "$2" > /tmp/newup
+    song="$1"
+    echo "$song" > /tmp/newup
     if [ ! -z "$old" ]; then
         echo "$old" >> /tmp/newup
     fi
@@ -76,14 +77,20 @@ function getrandom {
 }
 
 function skip {
-    next=`cat "$upcoming" | head -1`
-    echo "$next" > "$playing"
     echo "q" > "$mplayerfifo"
 }
 
 function prev {
     song=`cat "$prev"`
+
+    if [ -z "$song" ]
+    then
+	echo "No previous song"
+	exit
+    fi
+
     play "$song"
+    cat /dev/null > "$prev"
 }
 
 function exitd {
@@ -123,11 +130,9 @@ function add {
     file="$upcoming"
     command="addfile"
 
-    for arg in "$@"
+    for arg in "${@:2}"
     do
-        if [ "$arg" == "add" ]; then
-            continue
-        elif [ "$arg" == "list" ]; then
+        if [ "$arg" == "list" ]; then
             file="$list"
         elif [ "$arg" == "upcoming" ]; then
             file="$upcoming"
@@ -153,6 +158,12 @@ function shuffleupcoming {
     rm /tmp/shuffle
 }
 
+function remove {
+    cat "$1" | grep -v "$2" > /tmp/newfile
+    cat /tmp/newfile > "$1"
+    rm /tmp/newfile
+}
+
 if [ "$1" == "shuffle" ]
 then
     shuffleupcoming
@@ -160,7 +171,7 @@ fi
 
 if [ "$1" == "play" ]
 then
-    play "$@"
+    play "$2"
 fi
 
 if [ -z "$1" ]
@@ -238,6 +249,20 @@ then
     echo "pause" > "$mplayerfifo"
 fi
 
+if [ "$1" == "remove" ]
+then
+    file="$upcoming"
+    if [ "$2" == "list" ]
+    then
+	file="$list"
+    fi
+    
+    for arg in "${@:3}"
+    do
+	remove "$file" "$arg"
+    done
+fi
+
 if [ "$1" == "--help" -o "$1" == "-h" ]
 then
     echo "usage:"
@@ -248,9 +273,11 @@ then
     echo "      upcoming - print the upcoming file"
     echo "      playing - prints the currently playing song or says 'not playing'"
     echo "      add [list/upcoming] [file/folder] file-or-folder-to-add"
-    echo "            if affecting list, list will be reordered."
+    echo "            if affecting list, list will be reordered. list or upcoming"
+    echo "            can be put throught the command so you can have some files"
+    echo "            going to upcoming and some to list."
     echo "      stop - kills the daemon"
-    echo "      prev - plays previous song (a bit buggy at the moment)"
+    echo "      prev - plays previous song"
     echo "      skip - skips current song"
     echo "      clear - clears the upcoming file"
     echo "      getrandom - returns a random song from the list file"
