@@ -15,7 +15,7 @@ char *playcommand           = "%s play \"%s\"";
 char *addupcomingcommand    = "%s add upcoming file \"%s\"";
 char *playingcommand        = "%s playing";
 char *linescommand          = "%s | wc -l";
-//char *startplayingcommand   = "if [ -z \"$(%s playing)\" ]; then %s; fi";
+char *startplayingcommand   = "if [ -z \"$(%s playing)\" ]; then %s; fi";
 char *listmusiclist         = "%s list";
 char *listmusicupcoming     = "%s upcoming";
 char *preffilecommand       = "%s preffile";
@@ -107,11 +107,11 @@ void playcursor() {
 }
 
 void pageup() {
-  offset -= rmax - 1;
+  offset -= rmax - 2;
 }
 
 void pagedown() {
-  offset += rmax - 1;
+  offset += rmax - 2;
 }
 
 void gotoend() {
@@ -294,10 +294,10 @@ void addsong(char *song) {
 }
 
 void startplaying() {
-  /*   
-       system(startplayingcommand);
-       clearrow(rmax - 1);
-       drawstring(startplayingcommand, rmax - 1, 0);
+  /*
+  system(startplayingcommand);
+  clearrow(rmax - 1);
+  drawstring(startplayingcommand, rmax - 1, 0);
   */
 }
 
@@ -445,7 +445,6 @@ void checkkeys(int key) {
   Key *k;
 
   int lkeys = sizeof(keys) / sizeof(keys[0]);
-
   for (k = keys; k < keys + lkeys; k++) {
     if (key == k->key) {
       k->func();
@@ -514,7 +513,7 @@ int main(int argc, char *argv[]) {
   pthread_t pth;
   pthread_create(&pth, NULL, update, "updater");
   
-  //startplaying();
+  startplaying();
   gotoplaying();
 
   quitting = 0;
@@ -524,22 +523,15 @@ int main(int argc, char *argv[]) {
       break;
     }
     
-    /*
-    char str[] = "";
-    sprintf(str, "%i %c", d, d);
-    clearrow(rmax - 1);
-    drawstring(str, rmax - 1, cmax - 10);
-    */
-    
     if (cursor < 0) {
       cursor = rmax - 3;
-      offset -= rmax;
+      offset -= rmax - 2;
       if (rmax - 3 > lines - 1) cursor = lines - 1;
     }
     
     if (cursor > rmax - 3) {
       cursor = 0;
-      offset += rmax;
+      offset += rmax - 2;
     }
     
     if (cursor > lines - 1) {
