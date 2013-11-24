@@ -22,6 +22,15 @@ function play {
 }
 
 function startplaying {
+    if [ -a "$mplayerfifo" ]
+    then
+	echo "please kill me first!"
+	echo "     thats $0 stop if you forgot"
+	exit
+    fi
+
+    echo "Starting mmusic"
+    
     mkfifo "$mplayerfifo"
     
     if [ ! -a "$playing" ]
@@ -43,7 +52,8 @@ function startplaying {
         fi
 
         echo "$song" > "$playing"
-        mplayer -really-quiet -slave -input file="$mplayerfifo" "$song"
+#        mpv -really-quiet -slave -input file="$mplayerfifo" "$song"
+	mpv -really-quiet -input-file="$mplayerfifo" "$song"
         cat /dev/null > "$playing" 
         echo "$song" > "$prev"
 
@@ -77,7 +87,7 @@ function getrandom {
 }
 
 function skip {
-    echo "q" > "$mplayerfifo"
+    echo "quit" > "$mplayerfifo"
 }
 
 function prev {
@@ -95,8 +105,13 @@ function prev {
 
 function exitd {
     touch "$stoploop"
+
+    echo "killing"
+    
     echo "quit" > "$mplayerfifo"
 
+    echo "waiting"
+    
     if [ -n "$2" ]
     then
         sleep $(($2 - 0.5))
@@ -104,6 +119,8 @@ function exitd {
 
     sleep 0.5
 
+    echo "cleaning"
+    
     if [ -a "$mplayerfifo" ] 
     then 
         rm "$mplayerfifo"
@@ -176,19 +193,17 @@ fi
 
 if [ -z "$1" ]
 then
-    if [ -a "$mplayerfifo" ]
-    then
-	echo "please kill me first!"
-	echo "     thats $0 stop if you forgot"
-	exit
-    fi
+    startplaying
+fi
 
+if [ "$1" == "-d" ]
+then
     startplaying &
 fi
 
 if [ "$1" == "network" ]
 then
-    $0
+    startplaying &
     echo "Starting mmusic network server daemon"
     mmusicnd &
 fi
@@ -267,7 +282,8 @@ if [ "$1" == "--help" -o "$1" == "-h" ]
 then
     echo "usage:"
     echo "   $0 [option]"
-    echo "      no option will start both the music daemon and network daemon"
+    echo "      no option will start mmusic"
+    echo "      -d - will start mmusic in daemon mode"
     echo "      pause - pauses playing"
     echo "      list - prints the listmusic file"
     echo "      upcoming - print the upcoming file"
