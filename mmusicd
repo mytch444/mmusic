@@ -107,7 +107,7 @@ function exitd {
     touch "$stoploop"
 
     echo "killing"
-    
+
     echo "quit" > "$mplayerfifo"
 
     echo "waiting"
@@ -193,11 +193,6 @@ fi
 
 if [ -z "$1" ]
 then
-    startplaying
-fi
-
-if [ "$1" == "-d" ]
-then
     startplaying &
 fi
 
@@ -282,8 +277,7 @@ if [ "$1" == "--help" -o "$1" == "-h" ]
 then
     echo "usage:"
     echo "   $0 [option]"
-    echo "      no option will start mmusic"
-    echo "      -d - will start mmusic in daemon mode"
+    echo "      no option will start the mmusic daemon"
     echo "      pause - pauses playing"
     echo "      list - prints the listmusic file"
     echo "      upcoming - print the upcoming file"

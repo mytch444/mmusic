@@ -224,6 +224,7 @@ void playsong(char *s) {
   char buf[512] = {'\0'};
   sprintf(buf, playcommand, mmusiccommand, s);
   system(buf);
+  drawbar();
 }
 
 int locsong(char *song) {
@@ -396,8 +397,9 @@ void shuffle() {
   char shuffletext[1024];
   sprintf(shuffletext, shufflecommand, mmusiccommand);
   system(shuffletext);
-  loadsongs();
-  oldoffset = -1;
+
+  if (currentmode == MODE_UPCOMING)
+    updatelist();
 }
 
 void pause() {
@@ -410,12 +412,14 @@ void skip() {
   char skiptext[1024];
   sprintf(skiptext, skipcommand, mmusiccommand);
   system(skiptext);
+  drawbar();
 }
 
 void prev() {
   char prevtext[1024];
   sprintf(prevtext, prevcommand, mmusiccommand);
   system(prevtext);
+  drawbar();
 }
 
 void setfile(char *f) {
@@ -433,7 +437,7 @@ void drawbar() {
   color_set(1, NULL); 
 }
 
-void *update() {
+void *updateloop() {
   while (!quitting) {
     drawbar();
     refresh();
@@ -511,7 +515,7 @@ int main(int argc, char *argv[]) {
   init_pair(2, COLOR_BLACK, COLOR_BLUE);
   
   pthread_t pth;
-  pthread_create(&pth, NULL, update, "updater");
+  pthread_create(&pth, NULL, updateloop, "updater");
   
   startplaying();
   gotoplaying();
