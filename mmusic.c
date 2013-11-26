@@ -27,6 +27,7 @@ typedef struct {
   void (*func)();
 } Key;
 
+WINDOW *wnd;
 int rmax, cmax;
 char **songs;
 int lines;
@@ -137,7 +138,10 @@ int LEN(const char *str) {
 }
 
 void drawstring(char *string, int r, int c) {
+  int or, oc;
+  getyx(wnd, or, oc);
   mvaddnstr(r, c, string, cmax - c);
+  move(or, oc);
 }
 
 void drawfullstring(char *string, int r, int c) {
@@ -196,18 +200,28 @@ void loadsongs() {
 }
 
 char* getcommand(char *buf, int l, char *start) {
+  clearrow(rmax - 1);
   drawstring(start, rmax - 1, 0); 
   int i = 0;
+  int j;
   int c;
   while (i < l) {
     c = getch();
     
     if (c == '\n') {
       break; 
-    } else if ((c == KEY_BACKSPACE || c == KEY_DC || c == 127) && i > 0) {
+    } else if (c == CTR('g')) {
+      buf[0] = '\0';
+      break;
+    }else if ((c == KEY_BACKSPACE || c == KEY_DC || c == 127) && i > 0) {
       i--;
       buf[i] = '\0';
+    } else if ((c == KEY_LEFT) && i > 0) {
+      i--;
+    } else if ((c == KEY_RIGHT) && i + 1 < LEN(buf)) {
+      i++;
     } else {
+      for (j = LEN(buf); j > i; j--) buf[j] = buf[j - 1];
       buf[i] = c;
       i++;
     }
@@ -215,8 +229,9 @@ char* getcommand(char *buf, int l, char *start) {
     clearrow(rmax - 1);
     drawstring(start, rmax - 1, 0); 
     drawstring(buf, rmax - 1, LEN(start));
-    move(rmax - 1, i + 1 + LEN(start));
+    move(rmax - 1, i + LEN(start));
   }
+  move(0, 0);
   return buf;
 }
 
@@ -243,6 +258,12 @@ void search() {
   
   char search[128] = {'\0'};
   *search = *getcommand(search, 128, "/");
+
+  if (search[0] == '\0') {
+    clearrow(rmax - 1);
+    drawstring("Quit", rmax - 1, 0);
+    return;
+  }
   
   char linesb[512] = {'\0'};
   
@@ -474,7 +495,6 @@ void updatelist() {
 }
 
 int main(int argc, char *argv[]) {
-  WINDOW *wnd;
   int i;
   int d;
   
@@ -491,7 +511,6 @@ int main(int argc, char *argv[]) {
   noecho();
   start_color();
   getmaxyx(wnd, rmax, cmax);
-  curs_set(0);
   keypad(wnd, TRUE);
   clear();
   refresh();
