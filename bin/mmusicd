@@ -52,8 +52,7 @@ function startplaying {
         fi
 
         echo "$song" > "$playing"
-#        mpv -really-quiet -slave -input file="$mplayerfifo" "$song"
-	mpv -really-quiet -input-file="$mplayerfifo" "$song"
+	mpv --audio-display=no -really-quiet -input-file="$mplayerfifo" "$song"
         cat /dev/null > "$playing" 
         echo "$song" > "$prev"
 

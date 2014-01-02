@@ -1,7 +1,7 @@
 music: mmusic.c
 	gcc -o bin/mmusic mmusic.c -lncursesw -lpthread
 	cp mmusicd bin/mmusicd
-	cp mmusicn bin/mmusin
+	cp mmusicn bin/mmusicn
 	cp mmusicnd bin/mmusicnd
 clean:
 	rm bin/*
