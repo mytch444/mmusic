@@ -258,7 +258,7 @@ void search() {
   
   char search[128] = {'\0'};
   *search = *getcommand(search, 128, "/");
-
+  
   if (search[0] == '\0') {
     clearrow(rmax - 1);
     drawstring("Quit", rmax - 1, 0);
@@ -317,9 +317,9 @@ void addsong(char *song) {
 
 void startplaying() {
   /*
-  system(startplayingcommand);
-  clearrow(rmax - 1);
-  drawstring(startplayingcommand, rmax - 1, 0);
+    system(startplayingcommand);
+    clearrow(rmax - 1);
+    drawstring(startplayingcommand, rmax - 1, 0);
   */
 }
 
@@ -418,7 +418,7 @@ void shuffle() {
   char shuffletext[1024];
   sprintf(shuffletext, shufflecommand, mmusiccommand);
   system(shuffletext);
-
+  
   if (currentmode == MODE_UPCOMING)
     updatelist();
 }
@@ -468,7 +468,7 @@ void *updateloop() {
 
 void checkkeys(int key) {
   Key *k;
-
+  
   int lkeys = sizeof(keys) / sizeof(keys[0]);
   for (k = keys; k < keys + lkeys; k++) {
     if (key == k->key) {
@@ -483,7 +483,7 @@ void removecursor() {
   // I don't think I want to to be able to remove from list
   sprintf(buf, removecommand, mmusiccommand, "upcoming", songs[offset + cursor]);
   system(buf);
-
+  
   updatelist();
 }
 
@@ -538,7 +538,7 @@ int main(int argc, char *argv[]) {
   
   startplaying();
   gotoplaying();
-
+  
   quitting = 0;
   while (1) {
     checkkeys(d);
@@ -592,14 +592,14 @@ int main(int argc, char *argv[]) {
     drawfullstring(songs[offset + cursor], cursor, 2);
     drawstring("= ", cursor, 0);
     color_set(1, NULL); 
-    
+
     refresh();
     
     d = getch();
   }
   
   pthread_cancel(pth);
-
+  
   endwin();
 }
 

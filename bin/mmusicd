@@ -1,0 +1,297 @@
+#!/bin/bash 
+    
+list=~/.listmusic
+upcoming=~/.upcomingmusic
+
+mplayerfifo=/tmp/mplayerfifo
+stoploop=/tmp/stoploop
+
+playing=/tmp/playing
+prev=/tmp/prev
+
+function play {
+    old=`cat "$upcoming"`
+    song="$1"
+    echo "$song" > /tmp/newup
+    if [ ! -z "$old" ]; then
+        echo "$old" >> /tmp/newup
+    fi
+    cat /tmp/newup > "$upcoming"
+    rm /tmp/newup
+    echo "quit" > "$mplayerfifo"
+}
+
+function startplaying {
+    if [ -a "$mplayerfifo" ]
+    then
+	echo "please kill me first!"
+	echo "     thats $0 stop if you forgot"
+	exit
+    fi
+
+    echo "Starting mmusic"
+    
+    mkfifo "$mplayerfifo"
+    
+    if [ ! -a "$playing" ]
+    then
+        touch "$playing"
+    fi
+
+    for (( ; ; ))
+    do
+        song=`cat "$playing"`
+        if [ -z "$song" ]
+        then
+            song=`popupcoming`
+        fi
+
+        if [ -z "$song" ]
+        then
+            song=`$0 getrandom`
+        fi
+
+        echo "$song" > "$playing"
+#        mpv -really-quiet -slave -input file="$mplayerfifo" "$song"
+	mpv -really-quiet -input-file="$mplayerfifo" "$song"
+        cat /dev/null > "$playing" 
+        echo "$song" > "$prev"
+
+        if [ -a "$stoploop" ]
+        then
+            break
+        fi
+
+        sleep 0.5
+    done
+
+    rm "$playing"
+    rm "$mplayerfifo"
+}
+
+function popupcoming {
+    next=`cat "$upcoming" | head -1`
+    echo "$next"
+
+    tail -n +2 "$upcoming" > /tmp/tmpupcoming
+    cat /tmp/tmpupcoming > "$upcoming"
+    rm /tmp/tmpupcoming
+}
+
+function getrandom {
+    RAND=`od -d -N2 -An /dev/urandom`
+    LINES=`cat "$list" | wc -l`
+    N=$(( RAND % LINES + 1 ))
+    LINE=`head -$N $list | tail -1`
+    echo "$LINE"
+}
+
+function skip {
+    echo "quit" > "$mplayerfifo"
+}
+
+function prev {
+    song=`cat "$prev"`
+
+    if [ -z "$song" ]
+    then
+	echo "No previous song"
+	exit
+    fi
+
+    play "$song"
+    cat /dev/null > "$prev"
+}
+
+function exitd {
+    touch "$stoploop"
+
+    echo "killing"
+
+    echo "quit" > "$mplayerfifo"
+
+    echo "waiting"
+    
+    if [ -n "$2" ]
+    then
+        sleep $(($2 - 0.5))
+    fi
+
+    sleep 0.5
+
+    echo "cleaning"
+    
+    if [ -a "$mplayerfifo" ] 
+    then 
+        rm "$mplayerfifo"
+    fi
+
+    rm "$stoploop"
+}
+
+function addfolder {
+    find "$2" -name "*.*" >> "$1"
+}
+
+function addfile {
+    echo "$2" >> "$1"
+}
+
+function sortlist {
+    sort -f "$list" | uniq > "/tmp/sorting"
+    cat "/tmp/sorting" > "$list"
+    rm "/tmp/sorting"
+}
+
+function add {
+    file="$upcoming"
+    command="addfile"
+
+    for arg in "${@:2}"
+    do
+        if [ "$arg" == "list" ]; then
+            file="$list"
+        elif [ "$arg" == "upcoming" ]; then
+            file="$upcoming"
+        elif [ "$arg" == "random" ]; then
+            echo "$(getrandom)" >> "$file"
+        elif [ "$arg" == "file" ]; then
+            command="addfile"
+        elif [ "$arg" == "folder" ]; then
+            command="addfolder"
+        else
+            "$command" "$file" "$arg"
+        fi
+    done
+
+    if [ "$file" == "$list" ]; then
+        sortlist
+    fi
+}
+
+function shuffleupcoming {
+    sort -R "$upcoming" > /tmp/shuffle
+    cat /tmp/shuffle > "$upcoming"
+    rm /tmp/shuffle
+}
+
+function remove {
+    cat "$1" | grep -v "$2" > /tmp/newfile
+    cat /tmp/newfile > "$1"
+    rm /tmp/newfile
+}
+
+if [ "$1" == "shuffle" ]
+then
+    shuffleupcoming
+fi
+
+if [ "$1" == "play" ]
+then
+    play "$2"
+fi
+
+if [ -z "$1" ]
+then
+    startplaying &
+fi
+
+if [ "$1" == "network" ]
+then
+    startplaying &
+    echo "Starting mmusic network server daemon"
+    mmusicnd &
+fi
+
+if [ "$1" == "getrandom" ]
+then
+    getrandom
+fi
+
+if [ "$1" == "clear" ]
+then
+    rm "$upcoming"
+    touch "$upcoming"
+fi
+
+if [ "$1" == "skip" ]
+then
+    skip
+fi
+
+if [ "$1" == "prev" ]
+then
+    prev
+fi
+
+if [ "$1" == "stop" ]
+then
+    exitd 
+fi
+
+if [ "$1" == "add" ]
+then 
+    add "$@"
+fi
+
+if [ "$1" == "playing" ]
+then
+    if [ -a "$playing" ]
+    then
+        cat "$playing"
+        exit
+    fi
+    echo "Not playing"
+fi
+
+if [ "$1" == "upcoming" ]
+then
+    cat "$upcoming"
+fi
+
+if [ "$1" == "list" ]
+then
+    cat "$list"
+fi
+
+if [ "$1" == "pause" ]
+then
+    echo "pause" > "$mplayerfifo"
+fi
+
+if [ "$1" == "remove" ]
+then
+    file="$upcoming"
+    if [ "$2" == "list" ]
+    then
+	file="$list"
+    fi
+    
+    for arg in "${@:3}"
+    do
+	remove "$file" "$arg"
+    done
+fi
+
+if [ "$1" == "--help" -o "$1" == "-h" ]
+then
+    echo "usage:"
+    echo "   $0 [option]"
+    echo "      no option will start the mmusic daemon"
+    echo "      pause - pauses playing"
+    echo "      list - prints the listmusic file"
+    echo "      upcoming - print the upcoming file"
+    echo "      playing - prints the currently playing song or says 'not playing'"
+    echo "      add [list/upcoming] [file/folder] file-or-folder-to-add"
+    echo "            if affecting list, list will be reordered. list or upcoming"
+    echo "            can be put throught the command so you can have some files"
+    echo "            going to upcoming and some to list."
+    echo "      stop - kills the daemon"
+    echo "      prev - plays previous song"
+    echo "      skip - skips current song"
+    echo "      clear - clears the upcoming file"
+    echo "      getrandom - returns a random song from the list file"
+    echo "      network - starts the daemon as well as the networking daemon"
+    echo "      play file - plays file"
+    echo "      shuffle - shuffles the upcoming file"
+fi
