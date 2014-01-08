@@ -84,6 +84,7 @@ void gotoplaying();
 void shuffle();
 void removecursor();
 void updatelist();
+void center();
 
 #include "config.h"
 
@@ -129,6 +130,12 @@ void up() {
 
 void down() {
   cursor++;
+}
+
+void center() {
+  int old = cursor;
+  cursor = rmax / 2;
+  offset += old - cursor;
 }
 
 int LEN(const char *str) {
