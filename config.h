@@ -6,11 +6,13 @@
 
 static Key keys[] = {
   { 'q',    quit },
+  { 'Q',    quitdaemon },
   { 'p',    pause },
   { 'k',    up },
   { 'j',    down },
   { '\n',   playcursor },
   { 'a',    addcursor },
+  { 'A',    addnext },
   { 'S',    shuffle },
   { 's',    gotoplaying },
   { 'H',    gotostart },
@@ -28,6 +30,8 @@ static Key keys[] = {
   { KEY_UP,      up },
   { KEY_PPAGE,   pageup },
   { KEY_NPAGE,   pagedown },
+  { KEY_END,     gotoend },
+  { KEY_HOME,    gotostart },
   { CTR('n'),    down },
   { CTR('p'),    up },
   { CTR('f'),    pagedown },

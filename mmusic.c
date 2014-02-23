@@ -12,15 +12,18 @@ char *pausecommand          = "%s pause";
 char *skipcommand           = "%s skip";
 char *prevcommand           = "%s prev";
 char *playcommand           = "%s play \"%s\"";
-char *addupcomingcommand    = "%s add upcoming file \"%s\"";
+char *addupcomingcommand    = "%s add upcoming \"%s\"";
 char *playingcommand        = "%s playing";
 char *linescommand          = "%s | wc -l";
-char *startplayingcommand   = "if [ -z \"$(%s playing)\" ]; then %s; fi";
+char *startplayingcommand   = "%s";
 char *listmusiclist         = "%s list";
 char *listmusicupcoming     = "%s upcoming";
 char *preffilecommand       = "%s preffile";
 char *shufflecommand        = "%s shuffle";
 char *removecommand         = "%s remove %s \"%s\"";
+char *isplayingcommand      = "%s isplaying";
+char *stopdaemoncommand     = "%s stop";
+char *addnextcommand        = "%s add next \"%s\"";
 
 typedef struct {
   int key;
@@ -42,6 +45,36 @@ int offset, oldoffset;
 int cursor, oldcursor;
 int quitting;
 
+void quit();
+void quitdaemon();
+void prev();
+void pause();
+void skip();
+void modeone();
+void modetwo();
+void search();
+void up();
+void down();
+void gotostart();
+void gotoend();
+void pageup();
+void pagedown();
+void playcursor();
+void addcursor();
+void skip();
+void prev();
+void addnext();
+void searchnext();
+void searchback();
+void gotoplaying();
+void shuffle();
+void removecursor();
+void updatelist();
+void center();
+
+#include "config.h"
+
+// Don't really need to be seen by config
 int LEN(const char *str);
 void drawstring(char *string, int r, int c);
 void drawfullstring(char *string, int r, int c);
@@ -60,33 +93,7 @@ void setfile(char *f);
 void *update();
 void drawbar();
 void checkkeys(int key);
-
-void quit();
-void prev();
-void pause();
-void skip();
-void modeone();
-void modetwo();
-void search();
-void up();
-void down();
-void gotostart();
-void gotoend();
-void pageup();
-void pagedown();
-void playcursor();
-void addcursor();
-void skip();
-void prev();
-void searchnext();
-void searchback();
-void gotoplaying();
-void shuffle();
-void removecursor();
-void updatelist();
-void center();
-
-#include "config.h"
+void killdaemon();
 
 void quit() {
   quitting = 1;
@@ -109,11 +116,13 @@ void playcursor() {
 }
 
 void pageup() {
-  offset -= rmax - 2;
+  //  offset -= rmax - 2;
+  cursor -= rmax - 2;
 }
 
 void pagedown() {
-  offset += rmax - 2;
+  //  offset += rmax - 2;
+  cursor += rmax - 2;
 }
 
 void gotoend() {
@@ -323,11 +332,33 @@ void addsong(char *song) {
 }
 
 void startplaying() {
-  /*
-    system(startplayingcommand);
+  char buf[512] = {'\0'};
+  sprintf(buf, isplayingcommand, mmusiccommand);
+  FILE *playingf = popen(buf, "r");
+  
+  if (!playingf) {
     clearrow(rmax - 1);
-    drawstring(startplayingcommand, rmax - 1, 0);
-  */
+    drawstring("Could not check if playing and so I did not try to start the daemon.", rmax - 1, 0);
+    return;
+  }
+
+  char playing[2] = {'\0'};
+  fgets(playing, sizeof(char) * 2, playingf);
+  if (playing[0] == '0') {
+    char cmd[512] = {'\0'};
+    sprintf(cmd, startplayingcommand, mmusiccommand);
+
+    system(cmd);
+    
+    clearrow(rmax - 1);
+    drawstring("Starting daemon", rmax - 1, 0);
+    sleep(1);
+  } else {
+    clearrow(rmax - 1);
+    drawstring("Daemon already running", rmax - 1, 0);    
+  }
+  
+  pclose(playingf);
 }
 
 void searchn(int n) {
@@ -501,6 +532,25 @@ void updatelist() {
   drawbar();
 }
 
+void killdaemon() {
+  char buf[512] = {'\0'};
+  sprintf(buf, stopdaemoncommand, mmusiccommand);
+  system(buf);
+}
+
+void quitdaemon() {
+  quit();
+  killdaemon();
+}
+
+
+void addnext() {
+  char buf[2048] = {'\0'};
+  sprintf(buf, addnextcommand, mmusiccommand, songs[offset + cursor]);
+  system(buf);
+  cursor++;
+}
+
 int main(int argc, char *argv[]) {
   int i;
   int d;
@@ -519,8 +569,6 @@ int main(int argc, char *argv[]) {
   start_color();
   getmaxyx(wnd, rmax, cmax);
   keypad(wnd, TRUE);
-  clear();
-  refresh();
   
   currentmode = MODE_LIST;
   
@@ -543,38 +591,45 @@ int main(int argc, char *argv[]) {
   pthread_t pth;
   pthread_create(&pth, NULL, updateloop, "updater");
   
+  clear();
   startplaying();
   gotoplaying();
   
   quitting = 0;
   while (1) {
+    clearrow(rmax - 1);
+    
     checkkeys(d);
     if (quitting) {
       break;
     }
     
     if (cursor < 0) {
-      cursor = rmax - 3;
-      offset -= rmax - 2;
-      if (rmax - 3 > lines - 1) cursor = lines - 1;
+      if (offset <= 0) {
+	offset = 0;
+	cursor = 0;
+      } else {
+	cursor = rmax - 2 + cursor;
+	offset -= rmax - 2;
+	if (offset < 0)
+	  offset = 0;
+      }
     }
     
     if (cursor > rmax - 3) {
-      cursor = 0;
-      offset += rmax - 2;
+      if (offset >= lines - (rmax - 2)) {
+	offset = lines - (rmax - 2);
+	cursor = rmax - 3;
+      } else {
+	cursor = cursor - (rmax - 2);
+	offset += rmax - 2;
+	if (offset > lines - (rmax - 2))
+	  offset = lines - (rmax - 2);
+      }
     }
     
     if (cursor > lines - 1) {
-      cursor = 0;
-    }
-    
-    if (offset < 0) {
-      offset = lines - (rmax - 2);
-      if (offset < 0) offset = 0;
-    }
-    
-    if (offset > lines - (rmax - 2)) {
-      offset = 0;
+      cursor = lines - 1;
     }
     
     if (oldoffset != offset) {
@@ -609,4 +664,3 @@ int main(int argc, char *argv[]) {
   
   endwin();
 }
-
