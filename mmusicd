@@ -1,24 +1,21 @@
 #!/bin/bash 
 
 home=~/.mmusic
-tmp=$home/$tmp
 
 playlists=$home/playlists
-
 upcoming=$home/upcomingmusic
 
+tmp=$home/$tmp
 fifo=$tmp/mmusic_fifo
 stoploop=$tmp/mmusic_stoploop
-
 playing=$tmp/mmusic_playing
 pausedfile=$tmp/mmusic_paused
+currentplaylist=$tmp/current_playlist
 
 if [[ ! -a "$home" ]]
 then
     echo "Creating home at \"$home\""
     mkdir "$home"
-    mkdir "$tmp"
-    mkdir "$playlists"
 fi
 
 if [[ ! -a "$upcoming" ]]
@@ -26,11 +23,21 @@ then
     touch "$upcoming"
 fi
 
+if [[ ! -a "$tmp" ]]
+then
+    mkdir "$tmp"
+fi
+
+if [[ ! -a "$playlists" ]]
+then
+    mkdir "$playlists"
+fi
+
 function usage {
     echo "usage:"
     echo "   $0 [options]"
    
-    echo "      list - prints the listmusic file"
+    echo "      list - prints the current playlist files contents"
     echo "      upcoming - print the upcoming file"
     echo "      playing - prints the currently playing song or nothing if not playing"
     
@@ -86,6 +93,8 @@ function startplaying {
         echo "\"$1\" empty"
         return;
     fi
+
+    echo "$playlist" > "$currentplaylist"
 
     mkfifo "$fifo"
     
@@ -170,8 +179,8 @@ function exitd {
 }
 
 function sortlist {
-    sort -f "$list" | uniq > "$tmp/sorting"
-    cat "$tmp/sorting" > "$list"
+    sort -f "$1" | uniq > "$tmp/sorting"
+    cat "$tmp/sorting" > "$1"
     rm "$tmp/sorting"
 }
 
@@ -270,9 +279,9 @@ then
 
     add "$file" "$pos" "${@:3}"
 
-    if [[ "$2" == "list" ]]
+    if [[ "$2" != "upcoming" ]] && [[ "$2" != "next" ]]
     then
-        sortlist
+        sortlist "$playlists/$2"
     fi
 
 elif [[ "$1" == "playing" ]]
@@ -285,7 +294,7 @@ then
 
 elif [[ "$1" == "list" ]]
 then
-    cat "$list"
+    cat `cat "$currentplaylist"`
 
 elif [[ "$1" == "pause" ]]
 then
