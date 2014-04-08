@@ -555,14 +555,6 @@ int main(int argc, char *argv[]) {
   int i;
   int d;
   
-  if (argc > 1) {
-    char *host = argv[1];
-    char *port = argv[2];
-    int i;
-    for (i = 0; mmusiccommand[i]; i++) mmusiccommand[i] = '\0';
-    sprintf(mmusiccommand, "mmusicn %s %s", host, port);
-  }
-  
   wnd = initscr();
   cbreak();
   noecho();
