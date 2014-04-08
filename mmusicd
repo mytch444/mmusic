@@ -41,7 +41,7 @@ function usage {
     echo "      upcoming - print the upcoming file"
     echo "      playing - prints the currently playing song or nothing if not playing"
     
-    echo "      add [list|upcoming] file-or-folder-to-add - adds file or contents of folder to list or upcoming"
+    echo "      add [playlist|upcoming|next] file-or-folder-to-add - adds file or contents of folder to playlist specified or upcoming"
     
     echo "      pause - pauses playing"
     echo "      paused - echos \"yes\" if paused else \"no\" (note: returns no when player stopped)"
@@ -180,7 +180,7 @@ function exitd {
 
 function sortlist {
     sort -f "$1" | uniq > "$tmp/sorting"
-    cat "$tmp/sorting" > "$1"
+    cat "$tmp/sorting" > "$1t"
     rm "$tmp/sorting"
 }
 
