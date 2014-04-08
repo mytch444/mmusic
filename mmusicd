@@ -53,6 +53,7 @@ function usage {
 
     echo "      playlists - lists playlists"
     echo "      new \"name\" - create a new playlist with name \"name\""
+    echo "      change playlist - change to playlist"
 }
 
 function play {
@@ -335,6 +336,11 @@ then
 elif [[ "$1" == "new" ]]
 then
     touch "$playlists/$2"
+
+elif [[ "$1" == "change" ]]
+then
+    exitd
+    startplaying "$2" &
 
 elif [[ "$1" == "--help" ]] || [[  "$1" == "-h" ]]
 then
