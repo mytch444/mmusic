@@ -94,7 +94,7 @@ void drawbar();
 
 void checkkeys(int key);
 
-char* currentplayingsong(char playing[1024]);
+char* currentplayingsong();
 int paused();
 
 void quit() {
@@ -290,12 +290,17 @@ void search() {
 
     results = atoi(linesrb);
 
+    clear_row(rmax - 1);
+    drawstring(linesrb, rmax - 1, 0);
+    getch();
+
     if (results == 0) {
+        clear_row(rmax - 1);
         drawstring("None found", rmax - 1, 0);
         return;
     }
 
-    char resultsb[4096] = {'\0'}; 
+    char resultsb[1024] = {'\0'}; 
     sprintf(resultsb, "%s | grep -ie \"%s\"", file, search);
 
     result = popen(resultsb, "r");
@@ -304,18 +309,28 @@ void search() {
         return;
     }
 
-    char matchs[results][4096];
-    i = 0;
-    while (i < results && fgets(matchs[i], sizeof(char) * 4096, result)) i++;
-    pclose(result);
-
+    locations = NULL;
     locations = malloc(results * sizeof(int));
+    if (locations == NULL) {
+        clear_row(rmax - 1);
+        drawstring("Failed allocing", rmax - 1, 0);
+        return;
+    }
+        
     nlocations = results;
     clocations = -1;
-
-    for (i = 0; i < results; i++) {
-        locations[i] = locsong(matchs[i]);
+    i = 0;
+    while (i < results) {
+        char str[4096];
+        if (!fgets(str, sizeof(char) * 4096, result))
+            break;
+  
+        str[LEN(str)] = '\0'; // Why the fuck I have to do this I don't know but I do.
+        locations[i] = locsong(str);
+ 
+        i++;
     }
+    pclose(result);
 
     searchn(1);
 }
@@ -341,14 +356,19 @@ void searchn(int n) {
     if (clocations < 0) clocations = nlocations - 1;
 
     gotopos(locations[clocations]);
-
+   /* 
     char buf[128];
     sprintf(buf, "%i of %i", clocations + 1, nlocations);
     clear_row(rmax - 1);
-    drawstring(buf, rmax - 1, 0);
+    drawstring(buf, rmax - 1, 0); */
 }
 
 void gotopos(int loc) {
+    if (loc == -1) {
+        drawstring("cant go to pos -1", rmax - 1, 0);
+        return;
+    }
+    
     if (loc < rmax - 3) {
         offset = 0;
     } else if (loc > lines - (rmax - 3)) {
@@ -358,6 +378,10 @@ void gotopos(int loc) {
     }
 
     cursor = loc - offset;
+
+    char buff[1024];
+    sprintf(buff, "going to %i - %i to %i", offset, cursor, loc);
+    drawstring(buff, rmax - 1, 0);
 }
 
 void gotosong(char *song) {
@@ -377,12 +401,14 @@ int locsong(char *song) {
 }
 
 void gotoplaying() {
-    char playing[1024] = {'\0'};
-    *playing = *currentplayingsong(playing);
+    char *playing = currentplayingsong(playing);
     gotosong(playing);
 }
 
-char* currentplayingsong(char playing[1024]) {
+char* currentplayingsong() {
+    char *playing;
+    playing = malloc(sizeof(char) * 2048);
+
     FILE *playingf = popen(playingcommand, "r");
 
     if (!playingf) {
@@ -394,7 +420,7 @@ char* currentplayingsong(char playing[1024]) {
 
     pclose(playingf);
 
-    return playing;
+    return playing; 
 }
 
 void pause() {
@@ -414,8 +440,7 @@ void setfile(char *f) {
 void drawbar() {
     if (quitting) return;
 
-    char playing[1024];
-    *playing = *currentplayingsong(playing);
+    char *playing = currentplayingsong(playing);
 
     char bar[1024];
     sprintf(bar, "    %s", playing);
