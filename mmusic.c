@@ -15,7 +15,7 @@ char *skipcommand           = "mmusicd skip";
 char *playcommand           = "mmusicd play \"%s\"";
 
 char *playingcommand        = "mmusicd playing";
-
+char *ispausedcommand       = "mmusicd paused";
 char *linescommand          = "%s | wc -l";
 
 char *listmusiccommand      = "mmusicd list";
@@ -95,7 +95,7 @@ void drawbar();
 void checkkeys(int key);
 
 char* currentplayingsong();
-int paused();
+int ispaused();
 
 void quit() {
     quitting = 1;
@@ -123,11 +123,11 @@ void pagedown() {
 }
 
 void gotoend() {
-    offset = cursor = -1; 
+    gotopos(lines - 1);
 }
 
 void gotostart() {
-    offset = cursor = 0;
+    gotopos(0);
 }
 
 void up() {
@@ -356,37 +356,33 @@ void searchn(int n) {
     if (clocations < 0) clocations = nlocations - 1;
 
     gotopos(locations[clocations]);
-   /* 
+    
     char buf[128];
-    sprintf(buf, "%i of %i", clocations + 1, nlocations);
+    sprintf(buf, "%i of %i at %i", clocations + 1, nlocations, locations[clocations]);
     clear_row(rmax - 1);
-    drawstring(buf, rmax - 1, 0); */
+    drawstring(buf, rmax - 1, 0);
 }
 
 void gotopos(int loc) {
     if (loc == -1) {
-        drawstring("cant go to pos -1", rmax - 1, 0);
+        drawstring("I cant go to pos -1", rmax - 1, 0);
         return;
     }
     
-    if (loc < rmax - 3) {
+    if (loc < rmax - 2) {
         offset = 0;
-    } else if (loc > lines - (rmax - 3)) {
-        offset = lines - (rmax - 3);
+    } else if (loc >= lines - (rmax - 2)) {
+        offset = lines - (rmax - 2);
     } else {
-        offset = loc - (rmax - 3) / 2;
+        offset = loc - (rmax - 2) / 2;
     }
 
     cursor = loc - offset;
-
-    char buff[1024];
-    sprintf(buff, "going to %i - %i to %i", offset, cursor, loc);
-    drawstring(buff, rmax - 1, 0);
+    oldcursor = -1;
 }
 
 void gotosong(char *song) {
-    int loc = locsong(song);
-    gotopos(loc);
+    gotopos(locsong(song));
 }
 
 int locsong(char *song) {
@@ -423,6 +419,24 @@ char* currentplayingsong() {
     return playing; 
 }
 
+int ispaused() {
+    char *paused;
+    paused = malloc(sizeof(char) * 3);
+
+    FILE *pausedf = popen(ispausedcommand, "r");
+
+    if (!pausedf) {
+        error();
+    } else {
+        fgets(paused, sizeof(char) * 3, pausedf);
+        pclose(pausedf);
+        if (paused[0] == 'y')
+            return 1;
+    }
+
+    return 0;
+}
+
 void pause() {
     system(pausecommand);
     drawbar();
@@ -442,11 +456,12 @@ void drawbar() {
 
     char *playing = currentplayingsong(playing);
 
-    char bar[1024];
-    sprintf(bar, "    %s", playing);
-
     color_set(2, NULL); 
-    drawfullstring(bar, rmax - 2, 0);
+    drawfullstring(playing, rmax - 2, 0);
+
+    if (ispaused())
+        drawstring("P", rmax - 2, cmax - 2);
+
     color_set(1, NULL); 
 }
 
@@ -454,7 +469,7 @@ void *updateloop() {
     while (!quitting) {
         drawbar();
         refresh();
-        sleep(1);
+        usleep(500000);
     }
 }
 
@@ -516,19 +531,25 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        if (cursor < 0) {
+        if (offset < 0) {
+            offset = 0;
+            cursor = 0;
+        }
+
+        for (; cursor < 0; ) {
             if (offset <= 0) {
                 offset = 0;
                 cursor = 0;
             } else {
                 cursor = rmax - 2 + cursor;
                 offset -= rmax - 2;
-                if (offset < 0)
+                if (offset < 0) {
                     offset = 0;
+                }
             }
         }
-
-        if (cursor > rmax - 3) {
+       
+        for (; cursor > rmax - 3; ) {
             if (offset >= lines - (rmax - 2)) {
                 offset = lines - (rmax - 2);
                 cursor = rmax - 3;
@@ -539,7 +560,7 @@ int main(int argc, char *argv[]) {
                     offset = lines - (rmax - 2);
             }
         }
-
+      
         if (cursor > lines - 1) {
             cursor = lines - 1;
         }
@@ -553,8 +574,10 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        clear_row(oldcursor);
-        drawfullstring(songs[offset + oldcursor], oldcursor, 2);
+        if (oldcursor != -1) {
+            clear_row(oldcursor);
+            drawfullstring(songs[offset + oldcursor], oldcursor, 2);
+        }
 
         oldcursor = cursor;
 
@@ -562,6 +585,8 @@ int main(int argc, char *argv[]) {
         drawfullstring(songs[offset + cursor], cursor, 2);
         drawstring("= ", cursor, 0);
         color_set(1, NULL); 
+
+        drawbar();
 
         refresh();
 
