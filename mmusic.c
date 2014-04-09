@@ -8,26 +8,21 @@ int MODE_LIST               = 1;
 int MODE_UPCOMING           = 2;
 
 char mmusiccommand[256]     = "mmusicd";
-char *pausecommand          = "%s pause";
-char *skipcommand           = "%s skip";
-char *prevcommand           = "%s prev";
-char *playcommand           = "%s play \"%s\"";
-char *addupcomingcommand    = "%s add upcoming \"%s\"";
-char *playingcommand        = "%s playing";
+char *stopdaemoncommand     = "mmusicd stop";
+
+char *pausecommand          = "mmusicd pause";
+char *skipcommand           = "mmusicd skip";
+char *playcommand           = "mmusicd play \"%s\"";
+
+char *playingcommand        = "mmusicd playing";
+
 char *linescommand          = "%s | wc -l";
-char *startplayingcommand   = "%s";
-char *listmusiclist         = "%s list";
-char *listmusicupcoming     = "%s upcoming";
-char *preffilecommand       = "%s preffile";
-char *shufflecommand        = "%s shuffle";
-char *removecommand         = "%s remove %s \"%s\"";
-char *isplayingcommand      = "%s isplaying";
-char *stopdaemoncommand     = "%s stop";
-char *addnextcommand        = "%s add next \"%s\"";
+
+char *listmusiccommand      = "mmusicd list";
 
 typedef struct {
-  int key;
-  void (*func)();
+    int key;
+    void (*func)();
 } Key;
 
 WINDOW *wnd;
@@ -35,40 +30,36 @@ int rmax, cmax;
 char **songs;
 int lines;
 char file[1024];
-int listcursor, listoffset;
-int upcomingcursor, upcomingoffset;
-int currentmode;
+
 int *locations;
 int nlocations;
 int clocations;
+
 int offset, oldoffset;
 int cursor, oldcursor;
 int quitting;
 
 void quit();
 void quitdaemon();
-void prev();
+
 void pause();
 void skip();
-void modeone();
-void modetwo();
+
 void search();
+void searchnext();
+void searchback();
+
 void up();
 void down();
 void gotostart();
 void gotoend();
 void pageup();
 void pagedown();
+
 void playcursor();
-void addcursor();
-void skip();
-void prev();
-void addnext();
-void searchnext();
-void searchback();
+
 void gotoplaying();
-void shuffle();
-void removecursor();
+
 void updatelist();
 void center();
 
@@ -78,581 +69,481 @@ void center();
 int LEN(const char *str);
 void drawstring(char *string, int r, int c);
 void drawfullstring(char *string, int r, int c);
-void clearrow(int r);
+void clear_row_row(int r);
 void error();
 
-char* getcommand(char *buf, int l, char *start);
+char* get_string(char *buf, int l, char *start);
+
 int locsong(char *song);
 void loadsongs();
-void playsong(char *s);
-void searchn(int n);
-void addsong(char *song);
-void startplaying();
-void gotosong(char *song);
 void setfile(char *f);
-void *update();
-void drawbar();
-void checkkeys(int key);
+
+void playsong(char *s);
+
+void searchn(int n);
+
+void addsong(char *song);
+
 void killdaemon();
 
+void gotosong(char *song);
+void gotopos(int p);
+
+void *update();
+void drawbar();
+
+void checkkeys(int key);
+
+char* currentplayingsong(char playing[1024]);
+int paused();
+
 void quit() {
-  quitting = 1;
-}
-
-void searchnext() {
-  searchn(1);
-}
-
-void searchback() {
-  searchn(-1);
-}
-
-void addcursor() {
-  addsong(songs[offset + cursor++]);
-}
-
-void playcursor() {
-  playsong(songs[offset + cursor++]);
-}
-
-void pageup() {
-  //  offset -= rmax - 2;
-  cursor -= rmax - 2;
-}
-
-void pagedown() {
-  //  offset += rmax - 2;
-  cursor += rmax - 2;
-}
-
-void gotoend() {
-  offset = cursor = -1; 
-}
-
-void gotostart() {
-  offset = cursor = 0;
-}
-
-void up() {
-  cursor--;
-}
-
-void down() {
-  cursor++;
-}
-
-void center() {
-  int old = cursor;
-  cursor = rmax / 2;
-  offset += old - cursor;
-}
-
-int LEN(const char *str) {
-  const char *s;
-  for (s = str; *s && *s != '\n'; s++);
-  return (s - str);
-}
-
-void drawstring(char *string, int r, int c) {
-  int or, oc;
-  getyx(wnd, or, oc);
-  mvaddnstr(r, c, string, cmax - c);
-  move(or, oc);
-}
-
-void drawfullstring(char *string, int r, int c) {
-  drawstring(string, r, c);
-  char space[cmax - LEN(string) + 1];
-  int i;
-  for (i = 0; i < cmax - LEN(string); i++) space[i] = ' ';
-  space[i] = '\0';
-  
-  drawstring(space, r, c + LEN(string));
-}
-
-void clearrow(int r) {
-  drawfullstring(" ", r, 0);
-}
-
-void error() {
-  clearrow(rmax - 1);
-  drawstring("An error occured", rmax - 1, 0);
-  getch();
-  clearrow(rmax - 1);
-}
-
-void loadsongs() {
-  FILE* p;
-  
-  char linesc[1024];
-  sprintf(linesc, linescommand, file);
-  p = popen(linesc, "r");
-  if (!p) {
-    error();
-    return;
-  }
-  
-  char buf[12];
-  fgets(buf, sizeof(char) * 12, p);
-  pclose(p);
-  
-  lines = atoi(buf); 
-  if (lines < 1) lines = 1;
-  
-  p = popen(file, "r");
-  if (!p) {
-    error();
-    return;
-  }
-  
-  int i = 0; 
-  songs = (char**) malloc(lines * 512 * sizeof(char));
-  while (i < lines && fgets((songs[i] = (char*) malloc(512 * sizeof(char))), sizeof(char) * 512, p)) {
-    songs[i][LEN(songs[i])] = '\0';
-    i++;
-  }
-  
-  pclose(p);
-}
-
-char* getcommand(char *buf, int l, char *start) {
-  clearrow(rmax - 1);
-  drawstring(start, rmax - 1, 0); 
-  int i = 0;
-  int j;
-  int c;
-  while (i < l) {
-    c = getch();
-    
-    if (c == '\n') {
-      break; 
-    } else if (c == CTR('g')) {
-      buf[0] = '\0';
-      break;
-    }else if ((c == KEY_BACKSPACE || c == KEY_DC || c == 127) && i > 0) {
-      i--;
-      buf[i] = '\0';
-    } else if ((c == KEY_LEFT) && i > 0) {
-      i--;
-    } else if ((c == KEY_RIGHT) && i + 1 < LEN(buf)) {
-      i++;
-    } else {
-      for (j = LEN(buf); j > i; j--) buf[j] = buf[j - 1];
-      buf[i] = c;
-      i++;
-    }
-    
-    clearrow(rmax - 1);
-    drawstring(start, rmax - 1, 0); 
-    drawstring(buf, rmax - 1, LEN(start));
-    move(rmax - 1, i + LEN(start));
-  }
-  move(0, 0);
-  return buf;
-}
-
-void playsong(char *s) {
-  char buf[512] = {'\0'};
-  sprintf(buf, playcommand, mmusiccommand, s);
-  system(buf);
-  drawbar();
-}
-
-int locsong(char *song) {
-  int i;
-  for (i = 0; i < lines; i++) {
-    if (strcmp(song, songs[i]) == 0) {
-      return i;
-    }
-  }
-  
-  return -1;
-}
-
-void search() {
-  int i, results;
-  
-  char search[128] = {'\0'};
-  *search = *getcommand(search, 128, "/");
-  
-  if (search[0] == '\0') {
-    clearrow(rmax - 1);
-    drawstring("Quit", rmax - 1, 0);
-    return;
-  }
-  
-  char linesb[512] = {'\0'};
-  
-  sprintf(linesb, "%s | grep -ie \"%s\" | wc -l", file, search);
-  
-  FILE *result = popen(linesb, "r");
-  if (!result) {
-    error();
-    return;
-  }
-  
-  char linesrb[8] = {'\0'};
-  fgets(linesrb, sizeof(char) * 8, result);
-  pclose(result);
-  
-  results = atoi(linesrb);
-  
-  char resultsb[1024] = {'\0'}; 
-  sprintf(resultsb, "%s | grep -ie \"%s\"", file, search);
-  
-  result = popen(resultsb, "r");
-  if (!result) {
-    error();
-    return;
-  }
-  
-  char matchs[results][1024];
-  i = 0;
-  while (i < results && fgets(matchs[i], sizeof(char) * 1024, result)) {
-    matchs[i][LEN(matchs[i])] = '\0'; 
-    i++;
-  }
-  pclose(result);
-  
-  locations = malloc(results * sizeof(int));
-  nlocations = results;
-  clocations = -1;
-  
-  for (i = 0; i < results; i++) {
-    locations[i] = locsong(matchs[i]);
-  }
-  
-  searchn(1);
-}
-
-void addsong(char *song) {
-  char buf[512] = {'\0'};
-  sprintf(buf, addupcomingcommand, mmusiccommand, song);
-  system(buf);
-}
-
-void startplaying() {
-  char buf[512] = {'\0'};
-  sprintf(buf, isplayingcommand, mmusiccommand);
-  FILE *playingf = popen(buf, "r");
-  
-  if (!playingf) {
-    clearrow(rmax - 1);
-    drawstring("Could not check if playing and so I did not try to start the daemon.", rmax - 1, 0);
-    return;
-  }
-
-  char playing[2] = {'\0'};
-  fgets(playing, sizeof(char) * 2, playingf);
-  if (playing[0] == '0') {
-    char cmd[512] = {'\0'};
-    sprintf(cmd, startplayingcommand, mmusiccommand);
-
-    system(cmd);
-    
-    clearrow(rmax - 1);
-    drawstring("Starting daemon", rmax - 1, 0);
-    sleep(1);
-  } else {
-    clearrow(rmax - 1);
-    drawstring("Daemon already running", rmax - 1, 0);    
-  }
-  
-  pclose(playingf);
-}
-
-void searchn(int n) {
-  if (!locations) {
-    clearrow(rmax - 1);
-    drawstring("It may help if you search first", rmax - 1, 0);
-    getch();
-    clearrow(rmax - 1);
-    return;
-  }
-  
-  clocations += n;
-  
-  if (clocations > nlocations - 1) clocations = 0;
-  if (clocations < 0) clocations = nlocations - 1;
-  
-  if (locations[clocations] < rmax - 3) offset = 0;
-  else if (locations[clocations] > lines - rmax - 3) offset = lines - rmax - 3;
-  else offset = locations[clocations] - rmax / 2;
-  
-  cursor = locations[clocations] - offset;
-  
-  char buf[128];
-  sprintf(buf, "%i of %i", clocations + 1, nlocations);
-  clearrow(rmax - 1);
-  drawstring(buf, rmax - 1, 0);
-}
-
-void gotosong(char *song) {
-  int loc = locsong(song);
-  
-  if (loc < rmax - 3) {
-    offset = 0;
-  } else if (loc > lines - (rmax - 3)) {
-    offset = lines - (rmax - 3);
-  } else {
-    offset = loc - (rmax - 3) / 2;
-  }
-  
-  cursor = loc - offset;
-}
-
-void modeone() {
-  currentmode = MODE_LIST; 
-  upcomingcursor = cursor;
-  upcomingoffset = offset;
-  cursor = listcursor;
-  offset = listoffset;
-  oldoffset = -1;
-  oldcursor = -1;
-  setfile(listmusiclist);
-  
-  updatelist();
-}
-
-void modetwo() {
-  currentmode = MODE_UPCOMING;
-  listcursor = cursor;
-  listoffset = offset;
-  cursor = upcomingcursor;
-  offset = upcomingoffset;
-  oldoffset = -1;
-  oldcursor = -1;
-  setfile(listmusicupcoming);
-  
-  updatelist();
-}
-
-char* currentplayingsong(char playing[1024]) {
-  char filename[1024];
-  sprintf(filename, playingcommand, mmusiccommand);
-  FILE *playingf = popen(filename, "r");
-  
-  if (!playingf) {
-    clearrow(rmax - 1);
-    drawstring("Could not get currently playing song for some fucking annoying unknown reason. Thankyou.", rmax - 1, 0);
-  } else {
-    fgets(playing, sizeof(char) * (cmax - 2), playingf);
-    playing[LEN(playing)] = '\0';
-  }
-  
-  pclose(playingf);
-  
-  return playing;
-}
-
-void gotoplaying() {
-  if (currentmode == MODE_UPCOMING) return; 
-  char playing[1024] = {'\0'};
-  *playing = *currentplayingsong(playing);
-  gotosong(playing);
-}
-
-void shuffle() {
-  char shuffletext[1024];
-  sprintf(shuffletext, shufflecommand, mmusiccommand);
-  system(shuffletext);
-  
-  if (currentmode == MODE_UPCOMING)
-    updatelist();
-}
-
-void pause() {
-  char pausetext[1024];
-  sprintf(pausetext, pausecommand, mmusiccommand);
-  system(pausetext);
-}
-
-void skip() {
-  char skiptext[1024];
-  sprintf(skiptext, skipcommand, mmusiccommand);
-  system(skiptext);
-  drawbar();
-}
-
-void prev() {
-  char prevtext[1024];
-  sprintf(prevtext, prevcommand, mmusiccommand);
-  system(prevtext);
-  drawbar();
-}
-
-void setfile(char *f) {
-  sprintf(file, f, mmusiccommand);
-}
-
-void drawbar() {
-  if (quitting) return;
-  
-  char playing[1024];
-  *playing = *currentplayingsong(playing);
-  
-  color_set(2, NULL); 
-  drawfullstring(playing, rmax - 2, 0);
-  color_set(1, NULL); 
-}
-
-void *updateloop() {
-  while (!quitting) {
-    drawbar();
-    refresh();
-    sleep(3);
-  }
-}
-
-void checkkeys(int key) {
-  Key *k;
-  
-  int lkeys = sizeof(keys) / sizeof(keys[0]);
-  for (k = keys; k < keys + lkeys; k++) {
-    if (key == k->key) {
-      k->func();
-      return;
-    }
-  }
-}
-
-void removecursor() {
-  char buf[1024] = "";
-  // I don't think I want to to be able to remove from list
-  sprintf(buf, removecommand, mmusiccommand, "upcoming", songs[offset + cursor]);
-  system(buf);
-  
-  updatelist();
-}
-
-void updatelist() {
-  oldoffset = -1;
-  loadsongs();
-  clear();
-  drawbar();
-}
-
-void killdaemon() {
-  char buf[512] = {'\0'};
-  sprintf(buf, stopdaemoncommand, mmusiccommand);
-  system(buf);
+    quitting = 1;
 }
 
 void quitdaemon() {
-  quit();
-  killdaemon();
+    quit();
+    killdaemon();
 }
 
+void killdaemon() {
+    system(stopdaemoncommand);
+}
 
-void addnext() {
-  char buf[2048] = {'\0'};
-  sprintf(buf, addnextcommand, mmusiccommand, songs[offset + cursor]);
-  system(buf);
-  cursor++;
+void playcursor() {
+    playsong(songs[offset + cursor++]);
+}
+
+void pageup() {
+    cursor -= rmax - 2;
+}
+
+void pagedown() {
+    cursor += rmax - 2;
+}
+
+void gotoend() {
+    offset = cursor = -1; 
+}
+
+void gotostart() {
+    offset = cursor = 0;
+}
+
+void up() {
+    cursor--;
+}
+
+void down() {
+    cursor++;
+}
+
+void center() {
+    int old = cursor;
+    cursor = rmax / 2;
+    offset += old - cursor;
+}
+
+int LEN(const char *str) {
+    const char *s;
+    for (s = str; *s && *s != '\n'; s++);
+    return (s - str);
+}
+
+void drawstring(char *string, int r, int c) {
+    int or, oc;
+    getyx(wnd, or, oc);
+    mvaddnstr(r, c, string, cmax - c);
+    move(or, oc);
+}
+
+void drawfullstring(char *string, int r, int c) {
+    drawstring(string, r, c);
+    char space[cmax - LEN(string) + 1];
+    int i;
+    for (i = 0; i < cmax - LEN(string); i++) space[i] = ' ';
+    space[i] = '\0';
+
+    drawstring(space, r, c + LEN(string));
+}
+
+void clear_row(int r) {
+    drawfullstring(" ", r, 0);
+}
+
+void error() {
+    clear_row(rmax - 1);
+    drawstring("An error occured", rmax - 1, 0);
+    getch();
+    clear_row(rmax - 1);
+}
+
+void loadsongs() {
+    FILE* p;
+
+    char linesc[1024];
+    sprintf(linesc, linescommand, file);
+    p = popen(linesc, "r");
+    if (!p) {
+        error();
+        return;
+    }
+
+    char buf[12];
+    fgets(buf, sizeof(char) * 12, p);
+    pclose(p);
+
+    lines = atoi(buf); 
+    if (lines < 1) lines = 1;
+
+    p = popen(file, "r");
+    if (!p) {
+        error();
+        return;
+    }
+
+    int i = 0; 
+    songs = (char**) malloc(lines * 512 * sizeof(char));
+    while (i < lines && fgets((songs[i] = (char*) malloc(512 * sizeof(char))), sizeof(char) * 512, p)) {
+        songs[i][LEN(songs[i])] = '\0';
+        i++;
+    }
+
+    pclose(p);
+}
+
+char* get_string(char *buf, int l, char *start) {
+    clear_row(rmax - 1);
+    curs_set(1);
+    move(rmax - 1, 1);
+    drawstring(start, rmax - 1, 0); 
+    int i = 0;
+    int j;
+    int c;
+    while (i < l) {
+        c = getch();
+
+        if (c == '\n') {
+            break; 
+        } else if (c == CTR('g')) {
+            buf[0] = '\0';
+            break;
+        } else if (c == KEY_BACKSPACE || c == KEY_DC || c == 127) {
+            if (i > 0) {
+                i--;
+                buf[i] = '\0';
+            }
+        } else if (c == KEY_LEFT) {
+            if (i > 0)
+                i--;
+        } else if (c == KEY_RIGHT) {
+            if (i + 1 < LEN(buf))
+                i++;
+        } else {
+            for (j = LEN(buf); j > i; j--) buf[j] = buf[j - 1];
+            buf[i] = c;
+            i++;
+        }
+
+        clear_row(rmax - 1);
+        drawstring(start, rmax - 1, 0); 
+        drawstring(buf, rmax - 1, LEN(start));
+        move(rmax - 1, i + LEN(start));
+    }
+    move(0, 0);
+    curs_set(0);
+    return buf;
+}
+
+void playsong(char *s) {
+    char buf[512] = {'\0'};
+    sprintf(buf, playcommand, s);
+    system(buf);
+    drawbar();
+}
+
+void search() {
+    int i, results;
+
+    char search[512] = {'\0'};
+    *search = *get_string(search, 512, "/");
+
+    if (search[0] == '\0') {
+        clear_row(rmax - 1);
+        drawstring("Stoped", rmax - 1, 0);
+        return;
+    }
+
+    char linesb[512] = {'\0'};
+
+    sprintf(linesb, "%s | grep -ie \"%s\" | wc -l", file, search);
+
+    FILE *result = popen(linesb, "r");
+    if (!result) {
+        error();
+        return;
+    }
+
+    char linesrb[100] = {'\0'};
+    fgets(linesrb, sizeof(char) * 100, result);
+    pclose(result);
+
+    results = atoi(linesrb);
+
+    if (results == 0) {
+        drawstring("None found", rmax - 1, 0);
+        return;
+    }
+
+    char resultsb[4096] = {'\0'}; 
+    sprintf(resultsb, "%s | grep -ie \"%s\"", file, search);
+
+    result = popen(resultsb, "r");
+    if (!result) {
+        error();
+        return;
+    }
+
+    char matchs[results][4096];
+    i = 0;
+    while (i < results && fgets(matchs[i], sizeof(char) * 4096, result)) i++;
+    pclose(result);
+
+    locations = malloc(results * sizeof(int));
+    nlocations = results;
+    clocations = -1;
+
+    for (i = 0; i < results; i++) {
+        locations[i] = locsong(matchs[i]);
+    }
+
+    searchn(1);
+}
+
+void searchnext() {
+    searchn(1);
+}
+
+void searchback() {
+    searchn(-1);
+}
+
+void searchn(int n) {
+    if (!locations) {
+        clear_row(rmax - 1);
+        drawstring("It may help if you search first", rmax - 1, 0);
+        return;
+    }
+
+    clocations += n;
+
+    if (clocations > nlocations - 1) clocations = 0;
+    if (clocations < 0) clocations = nlocations - 1;
+
+    gotopos(locations[clocations]);
+
+    char buf[128];
+    sprintf(buf, "%i of %i", clocations + 1, nlocations);
+    clear_row(rmax - 1);
+    drawstring(buf, rmax - 1, 0);
+}
+
+void gotopos(int loc) {
+    if (loc < rmax - 3) {
+        offset = 0;
+    } else if (loc > lines - (rmax - 3)) {
+        offset = lines - (rmax - 3);
+    } else {
+        offset = loc - (rmax - 3) / 2;
+    }
+
+    cursor = loc - offset;
+}
+
+void gotosong(char *song) {
+    int loc = locsong(song);
+    gotopos(loc);
+}
+
+int locsong(char *song) {
+    int i;
+    for (i = 0; i < lines; i++) {
+        if (strcmp(song, songs[i]) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void gotoplaying() {
+    char playing[1024] = {'\0'};
+    *playing = *currentplayingsong(playing);
+    gotosong(playing);
+}
+
+char* currentplayingsong(char playing[1024]) {
+    FILE *playingf = popen(playingcommand, "r");
+
+    if (!playingf) {
+        error();
+    } else {
+        fgets(playing, sizeof(char) * (cmax - 2), playingf);
+        playing[LEN(playing)] = '\0';
+    }
+
+    pclose(playingf);
+
+    return playing;
+}
+
+void pause() {
+    system(pausecommand);
+    drawbar();
+}
+
+void skip() {
+    system(skipcommand);
+    drawbar();
+}
+
+void setfile(char *f) {
+    sprintf(file, f, mmusiccommand);
+}
+
+void drawbar() {
+    if (quitting) return;
+
+    char playing[1024];
+    *playing = *currentplayingsong(playing);
+
+    char bar[1024];
+    sprintf(bar, "    %s", playing);
+
+    color_set(2, NULL); 
+    drawfullstring(bar, rmax - 2, 0);
+    color_set(1, NULL); 
+}
+
+void *updateloop() {
+    while (!quitting) {
+        drawbar();
+        refresh();
+        sleep(1);
+    }
+}
+
+void checkkeys(int key) {
+    Key *k;
+
+    int lkeys = sizeof(keys) / sizeof(keys[0]);
+    for (k = keys; k < keys + lkeys; k++) {
+        if (key == k->key) {
+            k->func();
+            return;
+        }
+    }
+}
+
+void updatelist() {
+    oldoffset = -1;
+    loadsongs();
+    clear();
+    drawbar();
 }
 
 int main(int argc, char *argv[]) {
-  int i;
-  int d;
-  
-  wnd = initscr();
-  cbreak();
-  noecho();
-  start_color();
-  getmaxyx(wnd, rmax, cmax);
-  keypad(wnd, TRUE);
-  
-  currentmode = MODE_LIST;
-  
-  setfile(listmusiclist);
-  loadsongs();
-  
-  offset = 0;
-  oldoffset = -1;
-  cursor = 0;
-  oldcursor = -1;
-  
-  listcursor = cursor;
-  listoffset = offset;
-  upcomingcursor = cursor;
-  upcomingoffset = offset;
-  
-  init_pair(1, COLOR_WHITE, COLOR_BLACK);
-  init_pair(2, COLOR_BLACK, COLOR_BLUE);
-  
-  pthread_t pth;
-  pthread_create(&pth, NULL, updateloop, "updater");
-  
-  clear();
-  startplaying();
-  gotoplaying();
-  
-  quitting = 0;
-  while (1) {
-    clearrow(rmax - 1);
-    
-    checkkeys(d);
-    if (quitting) {
-      break;
-    }
-    
-    if (cursor < 0) {
-      if (offset <= 0) {
-	offset = 0;
-	cursor = 0;
-      } else {
-	cursor = rmax - 2 + cursor;
-	offset -= rmax - 2;
-	if (offset < 0)
-	  offset = 0;
-      }
-    }
-    
-    if (cursor > rmax - 3) {
-      if (offset >= lines - (rmax - 2)) {
-	offset = lines - (rmax - 2);
-	cursor = rmax - 3;
-      } else {
-	cursor = cursor - (rmax - 2);
-	offset += rmax - 2;
-	if (offset > lines - (rmax - 2))
-	  offset = lines - (rmax - 2);
-      }
-    }
-    
-    if (cursor > lines - 1) {
-      cursor = lines - 1;
-    }
-    
-    if (oldoffset != offset) {
-      oldoffset = offset;
-      oldcursor = -1;
-      for (i = offset; songs[i] && i - offset < rmax - 2; i++) {
-	clearrow(i - offset); 
-	drawstring(songs[i], i - offset, 2);
-      }
-    }
-    
-    char buf[1024];
-    
-    if (oldcursor != -1) {
-      clearrow(oldcursor);
-      drawfullstring(songs[offset + oldcursor], oldcursor, 2);
-    }
-    
-    oldcursor = cursor;
-    
-    color_set(2, NULL); 
-    drawfullstring(songs[offset + cursor], cursor, 2);
-    drawstring("= ", cursor, 0);
-    color_set(1, NULL); 
+    int i;
+    int d;
 
-    refresh();
-    
-    d = getch();
-  }
-  
-  pthread_cancel(pth);
-  
-  endwin();
+    wnd = initscr();
+    cbreak();
+    noecho();
+    start_color();
+    getmaxyx(wnd, rmax, cmax);
+    curs_set(0);
+    keypad(wnd, TRUE);
+
+    setfile(listmusiccommand);
+    loadsongs();
+
+    oldoffset = -1;
+    oldcursor = 0;
+    offset = 0;
+    cursor = 0;
+
+    init_pair(1, COLOR_WHITE, COLOR_BLACK);
+    init_pair(2, COLOR_BLACK, COLOR_BLUE);
+
+    pthread_t pth;
+    pthread_create(&pth, NULL, updateloop, "updater");
+
+    clear();
+
+    gotoplaying();
+
+    quitting = 0;
+    while (1) {
+        clear_row(rmax - 1);
+
+        checkkeys(d);
+        if (quitting) {
+            break;
+        }
+
+        if (cursor < 0) {
+            if (offset <= 0) {
+                offset = 0;
+                cursor = 0;
+            } else {
+                cursor = rmax - 2 + cursor;
+                offset -= rmax - 2;
+                if (offset < 0)
+                    offset = 0;
+            }
+        }
+
+        if (cursor > rmax - 3) {
+            if (offset >= lines - (rmax - 2)) {
+                offset = lines - (rmax - 2);
+                cursor = rmax - 3;
+            } else {
+                cursor = cursor - (rmax - 2);
+                offset += rmax - 2;
+                if (offset > lines - (rmax - 2))
+                    offset = lines - (rmax - 2);
+            }
+        }
+
+        if (cursor > lines - 1) {
+            cursor = lines - 1;
+        }
+
+        if (oldoffset != offset) {
+            oldoffset = offset;
+            oldcursor = -1;
+            for (i = offset; songs[i] && i - offset < rmax - 2; i++) {
+                clear_row(i - offset); 
+                drawstring(songs[i], i - offset, 2);
+            }
+        }
+
+        clear_row(oldcursor);
+        drawfullstring(songs[offset + oldcursor], oldcursor, 2);
+
+        oldcursor = cursor;
+
+        color_set(2, NULL); 
+        drawfullstring(songs[offset + cursor], cursor, 2);
+        drawstring("= ", cursor, 0);
+        color_set(1, NULL); 
+
+        refresh();
+
+        d = getch();
+    }
+
+    pthread_cancel(pth);
+
+    endwin();
 }
