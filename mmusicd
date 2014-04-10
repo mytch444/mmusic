@@ -182,7 +182,7 @@ function exitd {
 
 function sortlist {
     sort -f "$1" | uniq > "$tmp/sorting"
-    cat "$tmp/sorting" > "$1t"
+    cat "$tmp/sorting" > "$1"
     rm "$tmp/sorting"
 }
 
@@ -236,6 +236,8 @@ function add {
         cat "$tmp1" >> "$file"
     fi
 
+    echo "$file"
+
     rm "$tmp1"
 }
 
@@ -275,12 +277,12 @@ then
         pos="start"
     else
         file="$playlists/$2"
-        pos="end"
+        pos="sort"
     fi
 
     add "$file" "$pos" "${@:3}"
 
-    if [[ "$2" != "upcoming" ]] && [[ "$2" != "next" ]]
+    if [[ "$pos" == "sort" ]] 
     then
         sortlist "$playlists/$2"
     fi

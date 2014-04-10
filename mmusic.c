@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <regex.h>
 
 int MODE_LIST               = 1;
 int MODE_UPCOMING           = 2;
@@ -19,6 +20,8 @@ char *ispausedcommand       = "mmusicd paused";
 
 char *listmusiccommand      = "mmusicd list";
 
+char *playlistscommand      = "mmusicd playlists";
+
 typedef struct {
     int key;
     void (*func)();
@@ -28,11 +31,10 @@ WINDOW *wnd;
 int rmax, cmax;
 char **songs;
 int lines;
-char file[1024];
 
 int *locations;
 int nlocations;
-int clocations;
+int clocation;
 
 int offset, oldoffset;
 int cursor, oldcursor;
@@ -60,7 +62,6 @@ void playcursor();
 
 void gotoplaying();
 
-void updatelist();
 void center();
 
 #include "config.h"
@@ -72,11 +73,10 @@ void drawfullstring(char *string, int r, int c);
 void clear_row_row(int r);
 void error();
 
-char* get_string(char *buf, int l, char *start);
+char* get_string(char *start);
 
 int locsong(char *song);
-void loadsongs();
-void setfile(char *f);
+void loadsongs(char *list);
 
 void playsong(char *s);
 
@@ -180,11 +180,11 @@ void error() {
     clear_row(rmax - 1);
 }
 
-void loadsongs() {
+void loadsongs(char *list) {
     FILE* p;
 
     char linesc[1024];
-    sprintf(linesc, "%s | wc -l", file);
+    sprintf(linesc, "%s | wc -l", list);
     p = popen(linesc, "r");
     if (!p) {
         error();
@@ -198,15 +198,15 @@ void loadsongs() {
     lines = atoi(buf); 
     if (lines < 1) lines = 1;
 
-    p = popen(file, "r");
+    p = popen(list, "r");
     if (!p) {
         error();
         return;
     }
 
     int i = 0; 
-    songs = (char**) malloc(lines * 512 * sizeof(char));
-    while (i < lines && fgets((songs[i] = (char*) malloc(512 * sizeof(char))), sizeof(char) * 512, p)) {
+    songs = (char**) malloc(lines * 1024 * sizeof(char));
+    while (i < lines && fgets((songs[i] = (char*) malloc(1024 * sizeof(char))), sizeof(char) * 1024, p)) {
         songs[i][LEN(songs[i])] = '\0';
         i++;
     }
@@ -214,15 +214,21 @@ void loadsongs() {
     pclose(p);
 }
 
-char* get_string(char *buf, int l, char *start) {
+char* get_string(char *start) {
+    int j, c, l, i;
+    l = 1024;
+    i = 0;
+    char *buf;
+    
+    buf= malloc(sizeof(char) * l);
+    buf[0] = '\0';
+
     clear_row(rmax - 1);
     curs_set(1);
     move(rmax - 1, 1);
     drawstring(start, rmax - 1, 0); 
-    int i = 0;
-    int j;
-    int c;
-    while (i < l) {
+    
+    while (1) {
         c = getch();
 
         if (c == '\n') {
@@ -233,13 +239,13 @@ char* get_string(char *buf, int l, char *start) {
         } else if (c == KEY_BACKSPACE || c == KEY_DC || c == 127) {
             if (i > 0) {
                 i--;
-                buf[i] = '\0';
+                for (j = i; j < LEN(buf); j++) buf[j] = buf[j + 1];
             }
         } else if (c == KEY_LEFT) {
             if (i > 0)
                 i--;
         } else if (c == KEY_RIGHT) {
-            if (i + 1 < LEN(buf))
+            if (i < LEN(buf))
                 i++;
         } else {
             for (j = LEN(buf); j > i; j--) buf[j] = buf[j - 1];
@@ -252,6 +258,7 @@ char* get_string(char *buf, int l, char *start) {
         drawstring(buf, rmax - 1, LEN(start));
         move(rmax - 1, i + LEN(start));
     }
+
     move(0, 0);
     curs_set(0);
     return buf;
@@ -267,72 +274,39 @@ void playsong(char *s) {
 void search() {
     int i, results;
 
-    char search[512] = {'\0'};
-    *search = *get_string(search, 512, "/");
+    char *search = get_string("/");
 
-    if (search[0] == '\0') {
+    regex_t regex;
+    int reti;
+
+    reti = regcomp(&regex, search, REG_ICASE|REG_EXTENDED);
+    if (reti) {
         clear_row(rmax - 1);
-        drawstring("Stoped", rmax - 1, 0);
+        drawstring("Error initialising regex", rmax -1, 0);
         return;
     }
 
-    char linesb[512] = {'\0'};
+    for (i = 0; i < lines; i++) {
+        reti = regexec(&regex, songs[i], 0, NULL, 0);
 
-    sprintf(linesb, "%s | grep -ie \"%s\" | wc -l", file, search);
-
-    FILE *result = popen(linesb, "r");
-    if (!result) {
-        error();
-        return;
+        if (!reti)
+            results++;
     }
 
-    char linesrb[100] = {'\0'};
-    fgets(linesrb, sizeof(char) * 100, result);
-    pclose(result);
-
-    results = atoi(linesrb);
-
-    clear_row(rmax - 1);
-    drawstring(linesrb, rmax - 1, 0);
-    getch();
-
-    if (results == 0) {
-        clear_row(rmax - 1);
-        drawstring("None found", rmax - 1, 0);
-        return;
-    }
-
-    char resultsb[1024] = {'\0'}; 
-    sprintf(resultsb, "%s | grep -ie \"%s\"", file, search);
-
-    result = popen(resultsb, "r");
-    if (!result) {
-        error();
-        return;
-    }
-
-    locations = NULL;
     locations = malloc(results * sizeof(int));
-    if (locations == NULL) {
-        clear_row(rmax - 1);
-        drawstring("Failed allocing", rmax - 1, 0);
-        return;
-    }
-        
+    clocation = 0;
     nlocations = results;
-    clocations = -1;
-    i = 0;
-    while (i < results) {
-        char str[4096];
-        if (!fgets(str, sizeof(char) * 4096, result))
-            break;
-  
-        str[LEN(str)] = '\0'; // Why the fuck I have to do this I don't know but I do.
-        locations[i] = locsong(str);
- 
-        i++;
+    for (i = 0; i < lines; i++) {
+        reti = regexec(&regex, songs[i], 0, NULL, 0);
+        
+        if (!reti) {
+            locations[clocation] = locsong(songs[i]);
+            clocation++;
+        }
     }
-    pclose(result);
+
+
+    regfree(&regex);
 
     searchn(1);
 }
@@ -352,15 +326,15 @@ void searchn(int n) {
         return;
     }
 
-    clocations += n;
+    clocation += n;
 
-    if (clocations > nlocations - 1) clocations = 0;
-    if (clocations < 0) clocations = nlocations - 1;
+    if (clocation > nlocations - 1) clocation = 0;
+    if (clocation < 0) clocation = nlocations - 1;
 
-    gotopos(locations[clocations]);
+    gotopos(locations[clocation]);
     
     char buf[128];
-    sprintf(buf, "%i of %i at %i", clocations + 1, nlocations, locations[clocations]);
+    sprintf(buf, "%i of %i", clocation + 1, nlocations);
     clear_row(rmax - 1);
     drawstring(buf, rmax - 1, 0);
 }
@@ -380,7 +354,6 @@ void gotopos(int loc) {
     }
 
     cursor = loc - offset;
-//    oldcursor = -1;
 }
 
 void gotosong(char *song) {
@@ -449,10 +422,6 @@ void skip() {
     drawbar();
 }
 
-void setfile(char *f) {
-    sprintf(file, f, mmusiccommand);
-}
-
 void drawbar() {
     if (quitting) return;
 
@@ -508,13 +477,6 @@ void checkkeys(int key) {
     }
 }
 
-void updatelist() {
-    oldoffset = -1;
-    loadsongs();
-    clear();
-    drawbar();
-}
-
 int main(int argc, char *argv[]) {
     int d;
 
@@ -525,8 +487,7 @@ int main(int argc, char *argv[]) {
     curs_set(0);
     keypad(wnd, TRUE);
 
-    setfile(listmusiccommand);
-    loadsongs();
+    loadsongs(listmusiccommand);
 
     oldoffset = -1;
     oldcursor = 0;
