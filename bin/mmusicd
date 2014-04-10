@@ -5,12 +5,12 @@ home=~/.mmusic
 playlists=$home/playlists
 upcoming=$home/upcomingmusic
 
-tmp=$home/$tmp
-fifo=$tmp/mmusic_fifo
-stoploop=$tmp/mmusic_stoploop
-playing=$tmp/mmusic_playing
-pausedfile=$tmp/mmusic_paused
-currentplaylist=$tmp/current_playlist
+tmp=$home/tmp
+fifo=$tmp/fifo
+stoploop=$tmp/stoploop
+playing=$tmp/playing
+pausedfile=$tmp/paused
+currentplaylist=$tmp/playlist
 
 if [[ ! -a "$home" ]]
 then

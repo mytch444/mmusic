@@ -16,7 +16,6 @@ char *playcommand           = "mmusicd play \"%s\"";
 
 char *playingcommand        = "mmusicd playing";
 char *ispausedcommand       = "mmusicd paused";
-char *linescommand          = "%s | wc -l";
 
 char *listmusiccommand      = "mmusicd list";
 
@@ -38,6 +37,7 @@ int clocations;
 int offset, oldoffset;
 int cursor, oldcursor;
 int quitting;
+int ispaused;
 
 void quit();
 void quitdaemon();
@@ -95,7 +95,7 @@ void drawbar();
 void checkkeys(int key);
 
 char* currentplayingsong();
-int ispaused();
+void updateispaused();
 
 void quit() {
     quitting = 1;
@@ -152,6 +152,8 @@ int LEN(const char *str) {
 
 void drawstring(char *string, int r, int c) {
     int or, oc;
+    if (r > rmax || c > cmax || r < 0 || c < 0)
+        return;
     getyx(wnd, or, oc);
     mvaddnstr(r, c, string, cmax - c);
     move(or, oc);
@@ -182,7 +184,7 @@ void loadsongs() {
     FILE* p;
 
     char linesc[1024];
-    sprintf(linesc, linescommand, file);
+    sprintf(linesc, "%s | wc -l", file);
     p = popen(linesc, "r");
     if (!p) {
         error();
@@ -378,7 +380,7 @@ void gotopos(int loc) {
     }
 
     cursor = loc - offset;
-    oldcursor = -1;
+//    oldcursor = -1;
 }
 
 void gotosong(char *song) {
@@ -419,7 +421,7 @@ char* currentplayingsong() {
     return playing; 
 }
 
-int ispaused() {
+void updateispaused() {
     char *paused;
     paused = malloc(sizeof(char) * 3);
 
@@ -431,10 +433,10 @@ int ispaused() {
         fgets(paused, sizeof(char) * 3, pausedf);
         pclose(pausedf);
         if (paused[0] == 'y')
-            return 1;
+            ispaused = 1;
+        else
+            ispaused = 0;
     }
-
-    return 0;
 }
 
 void pause() {
@@ -459,17 +461,38 @@ void drawbar() {
     color_set(2, NULL); 
     drawfullstring(playing, rmax - 2, 0);
 
-    if (ispaused())
+    if (ispaused)
         drawstring("P", rmax - 2, cmax - 2);
 
     color_set(1, NULL); 
 }
 
+void drawlist() {
+    int i;
+    for (i = offset; songs[i] && i - offset < rmax - 2; i++) {
+        clear_row(i - offset); 
+        drawstring(songs[i], i - offset, 2);
+    }
+}
+
 void *updateloop() {
+    int r, c;
     while (!quitting) {
+        getmaxyx(wnd, r, c);
+        if (r != rmax || c != cmax) {      
+            rmax = r;
+            cmax = c;
+
+            clear();
+            drawlist();
+            drawbar();
+        }
+
+        updateispaused();
+
         drawbar();
         refresh();
-        usleep(500000);
+        sleep(1);
     }
 }
 
@@ -493,14 +516,12 @@ void updatelist() {
 }
 
 int main(int argc, char *argv[]) {
-    int i;
     int d;
 
     wnd = initscr();
     cbreak();
     noecho();
     start_color();
-    getmaxyx(wnd, rmax, cmax);
     curs_set(0);
     keypad(wnd, TRUE);
 
@@ -561,24 +582,18 @@ int main(int argc, char *argv[]) {
             }
         }
       
-        if (cursor > lines - 1) {
+        if (cursor > lines - 1)
             cursor = lines - 1;
-        }
 
-        if (oldoffset != offset) {
-            oldoffset = offset;
-            oldcursor = -1;
-            for (i = offset; songs[i] && i - offset < rmax - 2; i++) {
-                clear_row(i - offset); 
-                drawstring(songs[i], i - offset, 2);
-            }
-        }
+        if (oldoffset != offset)
+            drawlist();
 
-        if (oldcursor != -1) {
+        if (offset == oldoffset) {
             clear_row(oldcursor);
             drawfullstring(songs[offset + oldcursor], oldcursor, 2);
         }
 
+        oldoffset = offset;
         oldcursor = cursor;
 
         color_set(2, NULL); 
@@ -590,6 +605,7 @@ int main(int argc, char *argv[]) {
 
         refresh();
 
+        updateispaused();
         d = getch();
     }
 
