@@ -236,8 +236,6 @@ function add {
         cat "$tmp1" >> "$file"
     fi
 
-    echo "$file"
-
     rm "$tmp1"
 }
 
