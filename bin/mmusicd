@@ -1,0 +1,365 @@
+#!/bin/bash 
+
+home=~/.mmusic
+
+playlists=$home/playlists
+upcoming=$home/upcomingmusic
+
+tmp=$home/tmp
+fifo=$tmp/fifo
+stoploop=$tmp/stoploop
+playing=$tmp/playing
+pausedfile=$tmp/paused
+currentplaylist=$tmp/playlist
+
+if [[ ! -a "$home" ]]
+then
+    echo "Creating home at \"$home\""
+    mkdir "$home"
+fi
+
+if [[ ! -a "$upcoming" ]]
+then
+    touch "$upcoming"
+fi
+
+if [[ ! -a "$tmp" ]]
+then
+    mkdir "$tmp"
+fi
+
+if [[ ! -a "$playlists" ]]
+then
+    mkdir "$playlists"
+fi
+
+function usage {
+    echo "usage:"
+    echo "   $0 [options]"
+   
+    echo "      list - prints the current playlist files contents"
+    echo "      upcoming - print the upcoming file"
+    echo "      playing - prints the currently playing song or nothing if not playing"
+    
+    echo "      add [playlist|upcoming|next] file-or-folder-to-add - adds file or contents of folder to playlist specified or upcoming"
+    
+    echo "      pause - pauses playing"
+    echo "      paused - echos \"yes\" if paused else \"no\" (note: returns no when player stopped)"
+    echo "      stop - kills the daemon"
+    echo "      skip - skips current song"
+    
+    echo "      clear - clears the upcoming file"
+    echo "      play file - plays file"
+
+    echo "      playlists - lists playlists"
+    echo "      new \"name\" - create a new playlist with name \"name\""
+    echo "      change playlist - change to playlist"
+}
+
+function play {
+    old=`cat "$upcoming"`
+    song="$1"
+    echo "$song" > $tmp/newup
+    if [[ ! -z "$old" ]]; then
+        echo "$old" >> $tmp/newup
+    fi
+    cat $tmp/newup > "$upcoming"
+    rm $tmp/newup
+    echo "quit" > "$fifo"
+}
+
+function setplaylist {
+    playlist="$playlists/$1"
+
+    if [[ ! -a "$playlist" ]]
+    then
+        echo "Could not find playlist with name \"$1\""
+        echo "Note: You can currently not play playlists outside of \"$playlists\""
+        return
+    fi
+    
+    LINES=`cat "$playlist" | wc -l`
+    if [[ "$LINES" -eq "0" ]]
+    then
+        echo "\"$1\" is empty so I will not play it."
+        return;
+    fi
+
+    echo "$playlist" > "$currentplaylist"
+}
+
+function startplaying {
+    if [[ -a "$fifo" ]]
+    then
+        echo "please kill me first!"
+        echo "     thats $0 stop if you forgot"
+        exit
+    fi
+
+    mkfifo "$fifo"
+    
+    if [[ ! -a "$playing" ]]
+    then
+        touch "$playing"
+    fi
+
+    for (( ; ; ))
+    do
+        song=`cat "$playing"`
+        if [[ -z "$song" ]]
+        then
+            song=`popupcoming`
+        fi
+
+        if [[ -z "$song" ]]
+        then
+            song=`getrandom`
+        fi
+
+        echo "$song" > "$playing"
+	    mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
+        cat /dev/null > "$playing" 
+
+        if [[ -a "$stoploop" ]]
+        then
+            break
+        fi
+
+        sleep 0.5
+    done
+    
+    rm "$playing"
+    rm "$fifo"
+
+    if [[ -a "$pausedfile" ]]
+    then
+        rm "$pausedfile"
+    fi
+}
+
+function popupcoming {
+    next=`cat "$upcoming" | head -1`
+    echo "$next"
+
+    tail -n +2 "$upcoming" > $tmp/upcoming
+    cat $tmp/upcoming > "$upcoming"
+    rm $tmp/upcoming
+}
+
+function getrandom {
+    playlist=`cat "$currentplaylist"`
+
+    RAND=`od -d -N2 -An /dev/urandom`
+    LINES=`cat "$playlist" | wc -l`
+    N=$(( RAND % LINES + 1 ))
+    LINE=`head -$N $playlist | tail -1`
+    echo "$LINE"
+}
+
+function skip {
+    echo "quit" > "$fifo"
+}
+
+function exitd {
+    touch "$stoploop"
+
+    echo "quit" > "$fifo"
+    
+    if [[ -n "$2" ]]
+    then
+        sleep $(($2 - 0.5))
+    fi
+
+    sleep 0.5
+
+    if [[ -a "$fifo" ]] 
+    then 
+        rm "$fifo"
+    fi
+
+    rm "$stoploop"
+}
+
+function sortlist {
+    sort -f "$1" | uniq > "$tmp/sorting"
+    cat "$tmp/sorting" > "$1"
+    rm "$tmp/sorting"
+}
+
+function add {
+    if [[ -z "$3" ]]
+    then
+        for (( ; ; ))
+        do
+            read adding
+            if [[ -z "$adding" ]]
+            then
+                return;
+            fi
+            add "$1" "$2" "$adding"
+        done
+    fi
+
+    file="$1"
+    pos="$2"
+
+    tmpname="mmusic_add_tmp"
+    suffix=`find $tmp/ -maxdepth 1 -name "$tmpname*" | wc -l`
+    tmp1="$tmp/$tmpname$suffix"
+
+    touch "$tmp1"
+
+    for f in "${@:3}"
+    do
+        if [[ -d "$f" ]]
+        then
+            cd "$f"
+            find "$PWD/"* -name "*.mp3" | add "$1" "$2"
+            find "$PWD/"* -name "*.flac" | add "$1" "$2"
+            find "$PWD/"* -name "*.m4a" | add "$1" "$2"
+        elif [[ -a "$f" ]]
+        then
+            echo "$f" >> "$tmp1"
+        else
+            echo "No such file $f"
+        fi
+    done
+    
+    if [[ "$pos" == "start" ]]
+    then
+        tmp2="$tmp/$tmpname$(( $suffix + 1 ))"
+        cat "$tmp1" > "$tmp2"
+        cat "$file" >> "$tmp2"
+        cat "$tmp2" > "$file"
+        rm "$tmp2"
+    else
+        cat "$tmp1" >> "$file"
+    fi
+
+    rm "$tmp1"
+}
+
+function remove {
+    cat "$1" | grep -v "$2" > $tmp/newfile
+    cat $tmp/newfile > "$1"
+    rm $tmp/newfile
+}
+
+if [[ "$1" == "play" ]]
+then
+    play "$2"
+
+elif [[ "$1" == "clear" ]]
+then
+    rm "$upcoming"
+    touch "$upcoming"
+
+elif [[ "$1" == "skip" ]]
+then
+    skip
+
+elif [[ "$1" == "stop" ]]
+then
+    exitd 
+
+elif [[ "$1" == "add" ]]
+then 
+ 
+    if [[ "$2" == "upcoming" ]]
+    then
+        file="$upcoming"
+        pos="end"
+    elif [[ "$2" == "next" ]]
+    then
+        file="$upcoming"
+        pos="start"
+    else
+        file="$playlists/$2"
+        pos="sort"
+    fi
+
+    add "$file" "$pos" "${@:3}"
+
+    if [[ "$pos" == "sort" ]] 
+    then
+        sortlist "$playlists/$2"
+    fi
+
+elif [[ "$1" == "playing" ]]
+then
+    if [[ -a "$playing" ]]
+    then
+        cat "$playing"
+    else
+        echo "Not playing"
+    fi
+
+elif [[ "$1" == "upcoming" ]]
+then
+    cat "$upcoming"
+
+elif [[ "$1" == "list" ]]
+then
+    cat `cat "$currentplaylist"`
+
+elif [[ "$1" == "pause" ]]
+then
+    echo "pause" > "$fifo"
+    if [[ -a "$pausedfile" ]]
+    then
+        rm "$pausedfile"
+    else
+        echo "yes" > "$pausedfile"
+    fi
+
+elif [[ "$1" == "paused" ]]
+then
+    if [[ -a "$pausedfile" ]]
+    then
+        cat "$pausedfile"
+    else
+        echo "no"
+    fi
+
+elif [[ "$1" == "remove" ]]
+then
+    file="$upcoming"
+    if [[ "$2" == "list" ]]
+    then
+        file="$list"
+    fi
+    
+    for arg in "${@:3}"
+    do
+        remove "$file" "$arg"
+    done
+
+elif [[ "$1" == "playlists" ]]
+then
+    ls "$playlists"
+
+elif [[ "$1" == "new" ]]
+then
+    touch "$playlists/$2"
+
+elif [[ "$1" == "change" ]]
+then
+    setplaylist "$2"
+
+elif [[ "$1" == "--help" ]] || [[  "$1" == "-h" ]]
+then
+    usage
+
+elif [[ -n "$1" ]]
+then
+    echo "Playing playlist - $1"
+
+    setplaylist "$1"
+
+    startplaying &
+
+else
+    echo "Playing main"
+    setplaylist main
+    startplaying &
+fi
