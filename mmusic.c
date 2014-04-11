@@ -227,6 +227,7 @@ void loadsongs(char *list) {
     int i = 0; 
     songs = (char**) malloc(lines * 1024 * sizeof(char));
     while (i < lines && fgets((songs[i] = (char*) malloc(1024 * sizeof(char))), sizeof(char) * 1024, p)) {
+        songs[i][LEN(songs[i])] = '\0'; // Replaces the new line char with null.
         i++;
     }
 
@@ -501,6 +502,7 @@ void showplaylists() {
     cursor = oldcursor = 0;
     clear();
     drawlist();
+    drawbar();
 }
 
 void showlist() {
@@ -510,6 +512,7 @@ void showlist() {
     cursor = oldcursor = 0;
     clear();
     drawlist();
+    drawbar();
 }
 
 void showupcoming() {
@@ -519,6 +522,7 @@ void showupcoming() {
     cursor = oldcursor = 0;
     clear();
     drawlist();
+    drawbar();
 }
 
 int main(int argc, char *argv[]) {
