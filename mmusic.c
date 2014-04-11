@@ -255,11 +255,13 @@ char* get_string(char *start) {
         } else if (c == CTR('g') || c == 27) {
             buf[0] = '\0';
             break;
-        } else if (c == KEY_BACKSPACE || c == KEY_DC || c == 127) {
+        } else if (c == KEY_BACKSPACE || c == 127) {
             if (i > 0) {
                 i--;
                 for (j = i; j < LEN(buf); j++) buf[j] = buf[j + 1];
             }
+        } else if (c == KEY_DC) {
+            for (j = i; j < LEN(buf); j++) buf[j] = buf[j + 1];
         } else if (c == KEY_LEFT) {
             if (i > 0)
                 i--;
@@ -284,7 +286,7 @@ char* get_string(char *start) {
 }
 
 void search() {
-    int i, results;
+    int i, reti;
 
     char *search = get_string("/");
 
@@ -294,7 +296,6 @@ void search() {
     }
 
     regex_t regex;
-    int reti;
 
     reti = regcomp(&regex, search, REG_ICASE|REG_EXTENDED);
     if (reti) {
@@ -302,26 +303,26 @@ void search() {
         return;
     }
 
+    nlocations = 0;
     for (i = 0; i < lines; i++) {
         reti = regexec(&regex, songs[i], 0, NULL, 0);
 
-        if (!reti)
-            results++;
+        if (reti == 0)
+            nlocations++;
     }
 
-    if (results == 0) {
+    if (nlocations == 0) {
         message("No results found");
         return;
     }
 
     locations = NULL;
-    locations = malloc(results * sizeof(int));
+    locations = malloc(nlocations * sizeof(int));
     clocation = 0;
-    nlocations = results;
     for (i = 0; i < lines; i++) {
         reti = regexec(&regex, songs[i], 0, NULL, 0);
         
-        if (!reti) {
+        if (reti == 0) {
             locations[clocation] = locsong(songs[i]);
             clocation++;
         }
