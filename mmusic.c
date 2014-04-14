@@ -25,6 +25,12 @@ char *playlistscommand      = "mmusicd playlists";
 
 char *changeplaylistcommand = "mmusicd change \"%s\"";
 
+char *addupcomingcommand    = "mmusicd add upcoming \"%s\"";
+char *addnextcommand        = "mmusicd add next \"%s\"";
+char *removecommand         = "mmusicd remove %s \"%s\"";
+
+char *currentplaylistcommand = "mmusicd currentplaylist";
+
 typedef struct {
     int key;
     void (*func)();
@@ -72,6 +78,10 @@ void showplaylists();
 void showlist();
 void showupcoming();
 
+void addupcoming();
+void addnext();
+void removecursor();
+
 #include "config.h"
 
 // Don't really need to be seen by config
@@ -103,6 +113,7 @@ void checkkeys(int key);
 
 char* currentplayingsong();
 void updateispaused();
+char* currentplaylist();
 
 void quit() {
     quitting = 1;
@@ -415,6 +426,23 @@ char* currentplayingsong() {
     return playing; 
 }
 
+char* currentplaylist() {
+    char *playing;
+    playing = malloc(sizeof(char) * 2048);
+
+    FILE *playingf = popen(currentplaylistcommand, "r");
+
+    if (!playingf) {
+        error();
+    } else {
+        fgets(playing, sizeof(char) * (cmax - 2), playingf);
+    }
+
+    pclose(playingf);
+
+    return playing; 
+}
+
 void updateispaused() {
     char *paused;
     paused = malloc(sizeof(char) * 3);
@@ -493,6 +521,50 @@ void checkkeys(int key) {
             return;
         }
     }
+}
+
+void addupcoming() {
+    if (mode != MODE_LIST && mode != MODE_UPCOMING)
+        return;
+
+    char buf[2048];
+    sprintf(buf, addupcomingcommand, songs[offset + cursor]);
+    system(buf);
+    cursor++;
+}
+
+void addnext() {
+    if (mode != MODE_LIST && mode != MODE_UPCOMING)
+        return;
+
+    char buf[2048];
+    sprintf(buf, addnextcommand, songs[offset + cursor]);
+    system(buf);
+    cursor++;
+}
+
+void removecursor() {
+    char buf[2048];
+    char *playlist;
+    char *list;
+
+    if (mode == MODE_LIST) {
+        playlist = currentplaylist();
+        list = listmusiccommand;
+    } else if (mode == MODE_UPCOMING) {
+        playlist = "upcoming";
+        list = upcomingmusiccommand;
+    }
+
+    message(playlist);
+    getch();
+    message(songs[offset + cursor]);
+    getch();
+
+    sprintf(buf, removecommand, playlist, songs[offset + cursor]);
+    system(buf);
+
+   //showlist();
 }
 
 void showplaylists() {

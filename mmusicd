@@ -85,7 +85,7 @@ function setplaylist {
         return;
     fi
 
-    echo "$playlist" > "$currentplaylist"
+    echo "$1" > "$currentplaylist"
 }
 
 function startplaying {
@@ -147,8 +147,7 @@ function popupcoming {
 }
 
 function getrandom {
-    playlist=`cat "$currentplaylist"`
-
+    playlist=$playlists/`cat "$currentplaylist"`
     RAND=`od -d -N2 -An /dev/urandom`
     LINES=`cat "$playlist" | wc -l`
     N=$(( RAND % LINES + 1 ))
@@ -300,7 +299,7 @@ then
 
 elif [[ "$1" == "list" ]]
 then
-    cat `cat "$currentplaylist"`
+    cat $playlists/`cat "$currentplaylist"`
 
 elif [[ "$1" == "pause" ]]
 then
@@ -323,16 +322,14 @@ then
 
 elif [[ "$1" == "remove" ]]
 then
-    file="$upcoming"
-    if [[ "$2" == "list" ]]
+    if [[ "$2" == "upcoming" ]]
     then
-        file="$list"
+        file="$upcoming"
+    else
+        file="$playlists/$2"
     fi
     
-    for arg in "${@:3}"
-    do
-        remove "$file" "$arg"
-    done
+    remove "$file" "$3"
 
 elif [[ "$1" == "playlists" ]]
 then
@@ -345,6 +342,10 @@ then
 elif [[ "$1" == "change" ]]
 then
     setplaylist "$2"
+
+elif [[ "$1" == "currentplaylist" ]]
+then
+    cat "$currentplaylist"
 
 elif [[ "$1" == "--help" ]] || [[  "$1" == "-h" ]]
 then

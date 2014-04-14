@@ -17,6 +17,10 @@ static Key keys[] = {
   { 'n',    searchnext },
   { 'N',    searchback },
 
+  { 'a',    addupcoming },
+  { 'A',    addnext },
+  { 'd',    removecursor },
+
   { '1',    showplaylists },
   { '2',    showlist },
   { '3',    showupcoming },
