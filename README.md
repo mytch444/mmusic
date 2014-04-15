@@ -33,4 +33,3 @@ Todo
 ----
 
   * Replace mpv with something more suitable.
-  * Add better playlist functionality.

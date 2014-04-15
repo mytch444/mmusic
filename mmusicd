@@ -42,7 +42,8 @@ function usage {
     echo "      playing - prints the currently playing song or nothing if not playing"
     
     echo "      add [playlist|upcoming|next] file-or-folder-to-add - adds file or contents of folder to playlist specified or upcoming"
-    
+    echo "      remove [playlist|upcoming] n - Removes line n from playlist" 
+
     echo "      pause - pauses playing"
     echo "      paused - echos \"yes\" if paused else \"no\" (note: returns no when player stopped)"
     echo "      stop - kills the daemon"
@@ -239,7 +240,12 @@ function add {
 }
 
 function remove {
-    cat "$1" | grep -v "$2" > $tmp/newfile
+    l=`cat "$1" | wc -l`
+    n=$(($2 - 1))
+    m=$(($l - $2))
+
+    cat "$1" | head -$n > $tmp/newfile
+    cat "$1" | tail -$m >> $tmp/newfile
     cat $tmp/newfile > "$1"
     rm $tmp/newfile
 }

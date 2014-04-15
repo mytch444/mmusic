@@ -27,7 +27,7 @@ char *changeplaylistcommand = "mmusicd change \"%s\"";
 
 char *addupcomingcommand    = "mmusicd add upcoming \"%s\"";
 char *addnextcommand        = "mmusicd add next \"%s\"";
-char *removecommand         = "mmusicd remove %s \"%s\"";
+char *removecommand         = "mmusicd remove %s %i";
 
 char *currentplaylistcommand = "mmusicd currentplaylist";
 
@@ -175,6 +175,10 @@ void drawstring(char *string, int r, int c) {
     int or, oc;
     if (r > rmax || c > cmax || r < 0 || c < 0)
         return;
+    if (string == NULL) {
+        message("Well how the fuck am I supposed to draw a null string huh, huh!");
+        return;
+    }
     getyx(wnd, or, oc);
     mvaddnstr(r, c, string, cmax - c);
     move(or, oc);
@@ -213,6 +217,16 @@ void playsong(char *s) {
 
 void loadsongs(char *list) {
     FILE* p;
+    int i;
+
+    for (i = 0; i < lines; i++) {
+        free(songs[i]);
+        songs[i] = NULL;
+    }
+    if (lines > 0) {
+        free(songs);
+        songs = NULL;
+    }
 
     char linesc[1024];
     sprintf(linesc, "%s | wc -l", list);
@@ -235,9 +249,22 @@ void loadsongs(char *list) {
         return;
     }
 
-    int i = 0; 
-    songs = (char**) malloc(lines * 1024 * sizeof(char));
-    while (i < lines && fgets((songs[i] = (char*) malloc(1024 * sizeof(char))), sizeof(char) * 1024, p)) {
+    i = 0;
+    songs = malloc(lines * sizeof(char*));
+    if (songs == NULL) {
+        message("malloc ERROR");
+        return;
+    }
+    while (i < lines) {
+        songs[i] = malloc(1024 * sizeof(char));
+        if (songs[i] == NULL) {
+            message("malloc ERROR sub");
+            break;
+        }
+
+        if (!fgets(songs[i], sizeof(char) * 1024, p))
+            break;
+        
         songs[i][LEN(songs[i])] = '\0'; // Replaces the new line char with null.
         i++;
     }
@@ -419,6 +446,7 @@ char* currentplayingsong() {
         error();
     } else {
         fgets(playing, sizeof(char) * (cmax - 2), playingf);
+        playing[LEN(playing)] = '\0';
     }
 
     pclose(playingf);
@@ -436,6 +464,7 @@ char* currentplaylist() {
         error();
     } else {
         fgets(playing, sizeof(char) * (cmax - 2), playingf);
+        playing[LEN(playing)] = '\0';
     }
 
     pclose(playingf);
@@ -556,15 +585,11 @@ void removecursor() {
         list = upcomingmusiccommand;
     }
 
-    message(playlist);
-    getch();
-    message(songs[offset + cursor]);
-    getch();
-
-    sprintf(buf, removecommand, playlist, songs[offset + cursor]);
+    sprintf(buf, removecommand, playlist, offset + cursor + 1);
     system(buf);
 
-   //showlist();
+    loadsongs(list);
+    oldoffset = -1;
 }
 
 void showplaylists() {
