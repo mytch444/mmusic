@@ -58,15 +58,8 @@ function usage {
 }
 
 function play {
-    old=`cat "$upcoming"`
-    song="$1"
-    echo "$song" > $tmp/newup
-    if [[ ! -z "$old" ]]; then
-        echo "$old" >> $tmp/newup
-    fi
-    cat $tmp/newup > "$upcoming"
-    rm $tmp/newup
-    echo "quit" > "$fifo"
+    echo "load $1" > "$fifo"
+    echo "$1" > "$playing"
 }
 
 function setplaylist {
@@ -94,18 +87,20 @@ function startplaying {
     then
         echo "please kill me first!"
         echo "     thats $0 stop if you forgot"
-        exit
+#        exit
     fi
-
-    mkfifo "$fifo"
     
     if [[ ! -a "$playing" ]]
     then
         touch "$playing"
     fi
+        
+    mkfifo "$fifo"
 
+    echo "loop"
     for (( ; ; ))
     do
+        echo "finding song"
         song=`cat "$playing"`
         if [[ -z "$song" ]]
         then
@@ -117,8 +112,10 @@ function startplaying {
             song=`getrandom`
         fi
 
+        echo "$song"
         echo "$song" > "$playing"
-	    mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
+	    #mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
+        mplayer -really-quiet -slave -input file="$fifo" "$song"
         cat /dev/null > "$playing" 
 
         if [[ -a "$stoploop" ]]
@@ -126,16 +123,17 @@ function startplaying {
             break
         fi
 
-        sleep 0.5
+        sleep 0.1
     done
-    
+   
     rm "$playing"
-    rm "$fifo"
 
     if [[ -a "$pausedfile" ]]
     then
         rm "$pausedfile"
     fi
+
+    rm "$stoploop"
 }
 
 function popupcoming {
@@ -157,27 +155,17 @@ function getrandom {
 }
 
 function skip {
-    echo "quit" > "$fifo"
+    echo "q" > "$fifo"
 }
 
 function exitd {
     touch "$stoploop"
-
-    echo "quit" > "$fifo"
-    
-    if [[ -n "$2" ]]
+    if [[ -a "$fifo" ]]
     then
-        sleep $(($2 - 0.5))
-    fi
-
-    sleep 0.5
-
-    if [[ -a "$fifo" ]] 
-    then 
+        echo "quit" > $fifo
+        sleep 0.5
         rm "$fifo"
     fi
-
-    rm "$stoploop"
 }
 
 function sortlist {
@@ -362,11 +350,8 @@ then
     echo "Playing playlist - $1"
 
     setplaylist "$1"
-
     startplaying &
 
 else
-    echo "Playing main"
-    setplaylist main
-    startplaying &
+    $0 main
 fi
