@@ -118,8 +118,8 @@ function startplaying {
         fi
 
         echo "$song" > "$playing"
-	    #mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
-        mplayer -really-quiet -slave -input file="$fifo" "$song"
+	    mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
+        #mplayer -really-quiet -slave -input file="$fifo" "$song"
         cat /dev/null > "$playing" 
 
         if [[ -a "$stoploop" ]]
@@ -159,7 +159,7 @@ function getrandom {
 }
 
 function skip {
-    echo "q" > "$fifo"
+    echo "quit" > "$fifo"
 }
 
 function exitd {
