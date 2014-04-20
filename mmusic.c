@@ -92,6 +92,9 @@ void clear_row_row(int r);
 void error();
 void message(char *string);
 
+char*safe_name(char *string);
+int char_special(char c);
+
 char* get_string(char *start);
 
 int locsong(char *song);
@@ -211,7 +214,7 @@ void error() {
 
 void playsong(char *s) {
     char buf[512];
-    sprintf(buf, playcommand, s);
+    sprintf(buf, playcommand, safe_name(s));
     system(buf);
 }
 
@@ -273,8 +276,9 @@ void loadsongs(char *list) {
 }
 
 char* get_string(char *start) {
-    int j, c, l, i;
-    l = cmax - LEN(start);
+    int j, c, l, i, s;
+    s = LEN(start);
+    l = cmax - s;
     i = 0;
     char *buf;
     
@@ -315,8 +319,8 @@ char* get_string(char *start) {
 
         clear_row(rmax - 1);
         drawstring(start, rmax - 1, 0); 
-        drawstring(buf, rmax - 1, LEN(start));
-        move(rmax - 1, i + LEN(start));
+        drawstring(buf, rmax - 1, s);
+        move(rmax - 1, i + s);
     }
 
     move(0, 0);
@@ -557,7 +561,7 @@ void addupcoming() {
         return;
 
     char buf[2048];
-    sprintf(buf, addupcomingcommand, songs[offset + cursor]);
+    sprintf(buf, addupcomingcommand, safe_name(songs[offset + cursor]));
     system(buf);
     cursor++;
 }
@@ -567,7 +571,7 @@ void addnext() {
         return;
 
     char buf[2048];
-    sprintf(buf, addnextcommand, songs[offset + cursor]);
+    sprintf(buf, addnextcommand, safe_name(songs[offset + cursor]));
     system(buf);
     cursor++;
 }
@@ -590,6 +594,35 @@ void removecursor() {
 
     loadsongs(list);
     oldoffset = -1;
+}
+
+int char_special(char c) {
+    return (
+            c == '$'
+           );
+}
+
+char* safe_name(char *plain) {
+    char *safe;
+    int pl = LEN(plain);
+    int l, i, j;
+ 
+    for (i = l = 0; i < pl; i++) {
+        if (char_special(plain[i])) l++;
+        l++;
+    }
+
+    safe = NULL; 
+    safe = malloc(sizeof(char) * (l + 1));
+
+    for (i = j = 0; j < l; i++) {
+        if (char_special(plain[i]))
+            safe[j++] = '\\';
+        safe[j++] = plain[i];
+    }
+    safe[j] = '\0'; 
+
+    return safe;
 }
 
 void showplaylists() {
