@@ -222,22 +222,16 @@ void loadsongs(char *list) {
     FILE* p;
     int i;
 
-    for (i = 0; i < lines; i++) {
+    for (i = 0; i < lines; i++)
         free(songs[i]);
-        songs[i] = NULL;
-    }
-    if (lines > 0) {
+    if (i > 0)
         free(songs);
-        songs = NULL;
-    }
 
     char linesc[1024];
     sprintf(linesc, "%s | wc -l", list);
     p = popen(linesc, "r");
-    if (!p) {
-        error();
-        return;
-    }
+    if (!p)
+        return error();
 
     char buf[12];
     fgets(buf, sizeof(char) * 12, p);
@@ -247,34 +241,31 @@ void loadsongs(char *list) {
     if (lines < 1) lines = 1;
 
     p = popen(list, "r");
-    if (!p) {
-        error();
-        return;
-    }
+    if (!p)
+        return error();
 
-    i = 0;
     songs = malloc(lines * sizeof(char*));
-    if (songs == NULL) {
-        message("malloc ERROR");
-        return;
-    }
-    while (i < lines) {
+    for (i = 0; i < lines; i++) {
         songs[i] = malloc(1024 * sizeof(char));
-        if (songs[i] == NULL) {
-            message("malloc ERROR sub");
-            break;
-        }
 
         if (!fgets(songs[i], sizeof(char) * 1024, p))
             break;
         
         songs[i][LEN(songs[i])] = '\0'; // Replaces the new line char with null.
-        i++;
     }
+
+    if (locations)
+        free(locations);
+    locations = malloc(lines * sizeof(int)); // Cant be more matches than the number of songs getting checked right?
 
     pclose(p);
 }
 
+/*
+ * Having some problems with this on my computer, it seems to add random characters that cant be displayed
+ * and fuck everything up (hold delete and it removes them). But it doesn't do this on my laptop so I'm quite
+ * completely baffled. That laptops 64 and the server 32 bit if that makes a difference.
+ */
 char* get_string(char *start) {
     int j, c, l, i, s;
     s = LEN(start);
@@ -333,45 +324,29 @@ void search() {
 
     char *search = get_string("/");
 
-    if (search[0] == '\0') {
-        message("Done");
-        return;
-    }
+    if (search[0] == '\0')
+        return message("Done");
 
     regex_t regex;
 
     reti = regcomp(&regex, search, REG_ICASE|REG_EXTENDED);
-    if (reti) {
-        message("Error initialising regex");
-        return;
-    }
+    if (reti)
+        return message("Error initialising regex");
 
     nlocations = 0;
+    clocation = -1;
     for (i = 0; i < lines; i++) {
         reti = regexec(&regex, songs[i], 0, NULL, 0);
 
-        if (reti == 0)
-            nlocations++;
-    }
-
-    if (nlocations == 0) {
-        message("No results found");
-        return;
-    }
-
-    locations = NULL;
-    locations = malloc(nlocations * sizeof(int));
-    clocation = 0;
-    for (i = 0; i < lines; i++) {
-        reti = regexec(&regex, songs[i], 0, NULL, 0);
-        
         if (reti == 0) {
-            locations[clocation] = locsong(songs[i]);
-            clocation++;
+            locations[nlocations] = i;
+            nlocations++;
         }
     }
 
-
+    if (nlocations == 0) 
+        return message("No results found");
+    
     regfree(&regex);
 
     searchn(1);
@@ -386,10 +361,8 @@ void searchback() {
 }
 
 void searchn(int n) {
-    if (!locations || nlocations == 0) {
-        message("It may help if you search first");
-        return;
-    }
+    if (!locations || nlocations == 0) 
+        return message("It may help if you search first");
 
     clocation += n;
 
@@ -404,10 +377,8 @@ void searchn(int n) {
 }
 
 void gotopos(int loc) {
-    if (loc == -1) {
-        message("I cant go to pos -1");
-        return;
-    }
+    if (loc == -1)
+        return message("I cant go to pos -1");
     
     if (loc < rmax - 2) {
         offset = 0;
