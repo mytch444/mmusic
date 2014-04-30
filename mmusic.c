@@ -46,6 +46,7 @@ int *locations;
 int nlocations;
 int clocation;
 
+int **positions;
 int offset, oldoffset;
 int cursor, oldcursor;
 int quitting;
@@ -597,37 +598,43 @@ char* safe_name(char *plain) {
 }
 
 void showplaylists() {
+    positions[mode][0] = offset;
+    positions[mode][1] = cursor;
     mode = MODE_PLAYLIST;
     loadsongs(playlistscommand);
-    offset = oldoffset = 0;
-    cursor = oldcursor = 0;
+    offset = oldoffset = positions[mode][0];
+    cursor = oldcursor = positions[mode][1];
     clear();
     drawlist();
     drawbar();
 }
 
 void showlist() {
+    positions[mode][0] = offset;
+    positions[mode][1] = cursor;
     mode = MODE_LIST;
     loadsongs(listmusiccommand);
-    offset = oldoffset = 0;
-    cursor = oldcursor = 0;
+    offset = oldoffset = positions[mode][0];
+    cursor = oldcursor = positions[mode][1];
     clear();
     drawlist();
     drawbar();
 }
 
 void showupcoming() {
+    positions[mode][0] = offset;
+    positions[mode][1] = cursor;
     mode = MODE_UPCOMING;
     loadsongs(upcomingmusiccommand);
-    offset = oldoffset = 0;
-    cursor = oldcursor = 0;
+    offset = oldoffset = positions[mode][0];
+    cursor = oldcursor = positions[mode][1];
     clear();
     drawlist();
     drawbar();
 }
 
 int main(int argc, char *argv[]) {
-    int d;
+    int d, i;
 
     wnd = initscr();
     cbreak();
@@ -642,6 +649,16 @@ int main(int argc, char *argv[]) {
     locations = NULL;
     nlocations = 0;
 
+    positions = malloc(sizeof(int*) * 3);
+    for (i = 0; i < 3; i++) {
+        positions[i] = malloc(sizeof(int) * 2);
+        positions[i][0] = 0;
+        positions[i][1] = 0;
+    }
+
+    offset = oldoffset = 0;
+    cursor = oldcursor = 0;
+    
     clear();
     showplaylists();
     

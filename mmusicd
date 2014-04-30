@@ -93,8 +93,10 @@ function setplaylist {
 function startplaying {
     if [[ -a "$fifo" ]]
     then
-        echo "please kill me first!"
+        echo "please stop me first!"
         echo "     thats $0 stop if you forgot"
+        echo "     If that just hangs try killing me with"
+        echo "          $0 kill" 
         exit
     fi
     
@@ -161,6 +163,10 @@ function getrandom {
 
 function skip {
     echo "quit" > "$fifo"
+    if [[ -a "$pausedfile" ]]
+    then
+        rm "$pausedfile"
+    fi
 }
 
 function exitd {
@@ -260,7 +266,7 @@ elif [[ "$1" == "stop" ]]
 then
     exitd 
 
-elif [[ "$1" == "stop" ]]
+elif [[ "$1" == "kill" ]]
 then
     rm $tmp/*
 
