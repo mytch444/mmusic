@@ -6,6 +6,7 @@
 
 static Key keys[] = {
   { 'q',    quit },
+  { 27,     quit }, // Esc
   { 'Q',    quitdaemon },
   { 'p',    pause },
   { 'k',    up },

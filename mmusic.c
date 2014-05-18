@@ -271,17 +271,18 @@ char* get_string(char *start) {
     int j, c, l, i, s;
     s = LEN(start);
     l = cmax - s;
-    i = 0;
     char *buf;
     
     buf= malloc(sizeof(char) * l);
-    buf[0] = '\0';
+    for (i = 0; i < l; i++)
+        buf[i] = '\0';
 
     clear_row(rmax - 1);
     curs_set(1);
     move(rmax - 1, 1);
     drawstring(start, rmax - 1, 0); 
     
+    i = 0;
     while (1) {
         c = getch();
 
@@ -728,7 +729,7 @@ int main(int argc, char *argv[]) {
         color_set(1, NULL); 
 
         drawbar();
-
+        
         refresh();
         d = getch();
     }
