@@ -9,6 +9,7 @@ static Key keys[] = {
   { 27,     quit }, // Esc
   { 'Q',    quitdaemon },
   { 'p',    pause },
+  { 'r',    togglerandom },
   { 'k',    up },
   { 'j',    down },
   { '\n',   playcursor },

@@ -15,9 +15,12 @@ char *stopdaemoncommand     = "mmusicd stop";
 char *pausecommand          = "mmusicd pause";
 char *skipcommand           = "mmusicd skip";
 char *playcommand           = "mmusicd play \"%s\"";
+char *randomcommand         = "mmusicd random";
 
 char *playingcommand        = "mmusicd playing";
 char *ispausedcommand       = "mmusicd paused";
+
+char *israndomcommand       = "mmusicd israndom";
 
 char *listmusiccommand      = "mmusicd list";
 char *upcomingmusiccommand  = "mmusicd upcoming";
@@ -51,6 +54,7 @@ int offset, oldoffset;
 int cursor, oldcursor;
 int quitting;
 int ispaused;
+int israndom;
 
 void quit();
 void quitdaemon();
@@ -82,6 +86,8 @@ void showupcoming();
 void addupcoming();
 void addnext();
 void removecursor();
+
+void togglerandom();
 
 #include "config.h"
 
@@ -117,6 +123,7 @@ void checkkeys(int key);
 
 char* currentplayingsong();
 void updateispaused();
+void updateisrandom();
 char* currentplaylist();
 
 void quit() {
@@ -126,6 +133,10 @@ void quit() {
 void quitdaemon() {
     quit();
     system(stopdaemoncommand);
+}
+
+void togglerandom() {
+    system(randomcommand);
 }
 
 void playcursor() {
@@ -467,6 +478,25 @@ void updateispaused() {
     }
 }
 
+void updateisrandom() {
+    char *random;
+    random = malloc(sizeof(char) * 3);
+
+    FILE *randomf = popen(israndomcommand, "r");
+
+    if (!randomf) {
+        error();
+    } else {
+        fgets(random, sizeof(char) * 3, randomf);
+        pclose(randomf);
+        if (random[0] == 'y')
+            israndom = 1;
+        else
+            israndom = 0;
+    }
+}
+
+
 void pause() {
     system(pausecommand);
 }
@@ -485,6 +515,9 @@ void drawbar() {
 
     if (ispaused)
         drawstring("P", rmax - 2, cmax - 2);
+
+    if (israndom)
+        drawstring("R", rmax - 2, cmax - 3);
 
     color_set(1, NULL); 
 }
@@ -510,6 +543,7 @@ void *updateloop() {
         }
 
         updateispaused();
+        updateisrandom();
 
         drawbar();
         refresh();
@@ -571,7 +605,10 @@ void removecursor() {
 
 int char_special(char c) {
     return (
-            c == '$'
+            c == '$' || 
+            c == '[' ||
+            c == ']' ||
+            c == '\\'
            );
 }
 

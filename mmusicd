@@ -11,6 +11,7 @@ stoploop=$tmp/stoploop
 playing=$tmp/playing
 pausedfile=$tmp/paused
 currentplaylist=$tmp/playlist
+israndom=$tmp/israndom
 
 if [[ ! -a "$home" ]]
 then
@@ -106,10 +107,12 @@ function startplaying {
     fi
         
     mkfifo "$fifo"
+    touch "$israndom"
 
     for (( ; ; ))
     do
-        song=`cat "$playing"`
+    #    song=`cat "$playing"`
+        song=""
         if [[ -z "$song" ]]
         then
             song=`popupcoming`
@@ -117,13 +120,19 @@ function startplaying {
 
         if [[ -z "$song" ]]
         then
-            song=`getrandom`
+            if [[ -a "$israndom" ]]
+            then
+                echo "picking random"
+                song=`getrandom`
+            else
+                echo "picking next"
+                song=`getnext`
+            fi
         fi
 
         echo "$song" > "$playing"
 	    mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
         #mplayer -really-quiet -slave -input file="$fifo" "$song"
-        cat /dev/null > "$playing" 
 
         if [[ -a "$stoploop" ]]
         then
@@ -159,6 +168,13 @@ function getrandom {
     N=$(( RAND % LINES + 1 ))
     LINE=`head -$N $playlist | tail -1`
     echo "$LINE"
+}
+
+function getnext {
+    list="$playlists/`cat $currentplaylist`"
+    playing=`cat "$playing"`
+    song=`cat $list | grep -A1 "$playing" | tail -n 1`
+    echo "$song"
 }
 
 function skip {
@@ -317,14 +333,14 @@ then
     then
         rm "$pausedfile"
     else
-        echo "yes" > "$pausedfile"
+        touch "$pausedfile"
     fi
 
 elif [[ "$1" == "paused" ]]
 then
     if [[ -a "$pausedfile" ]]
     then
-        cat "$pausedfile"
+        echo "yes"
     else
         echo "no"
     fi
@@ -339,6 +355,24 @@ then
     fi
     
     remove "$file" "$3"
+
+elif [[ "$1" == "random" ]]
+then
+    if [[ -a "$israndom" ]]
+    then
+        rm "$israndom"
+    else
+        touch "$israndom"
+    fi
+
+elif [[ "$1" == "israndom" ]]
+then
+    if [[ -a "$israndom" ]]
+    then
+        echo "yes"
+    else
+        echo "no"
+    fi
 
 elif [[ "$1" == "playlists" ]]
 then
