@@ -122,10 +122,8 @@ function startplaying {
         then
             if [[ -a "$israndom" ]]
             then
-                echo "picking random"
                 song=`getrandom`
             else
-                echo "picking next"
                 song=`getnext`
             fi
         fi
