@@ -605,10 +605,7 @@ void removecursor() {
 
 int char_special(char c) {
     return (
-            c == '$' || 
-            c == '[' ||
-            c == ']' ||
-            c == '\\'
+            c == '$'
            );
 }
 

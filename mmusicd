@@ -6,6 +6,7 @@ playlists=$home/playlists
 upcoming=$home/upcomingmusic
 
 tmp=$home/tmp
+
 fifo=$tmp/fifo
 stoploop=$tmp/stoploop
 playing=$tmp/playing
@@ -89,6 +90,14 @@ function setplaylist {
     fi
 
     echo "$1" > "$currentplaylist"
+
+    if [[ ! -a "$playing" ]]
+    then
+        echo "Starting"
+        startplaying &
+    else
+        echo "should be playing"
+    fi
 }
 
 function startplaying {
@@ -140,14 +149,7 @@ function startplaying {
         sleep 0.1
     done
    
-    rm "$playing"
-
-    if [[ -a "$pausedfile" ]]
-    then
-        rm "$pausedfile"
-    fi
-
-    rm "$stoploop"
+    rm $tmp/*
 }
 
 function popupcoming {
@@ -188,8 +190,6 @@ function exitd {
     if [[ -a "$fifo" ]]
     then
         echo "quit" > $fifo
-        sleep 0.5
-        rm "$fifo"
     fi
 }
 
@@ -228,6 +228,7 @@ function add {
         then
             cd "$f"
             find "$PWD/"* -name "*.mp3" | add "$1" "$2"
+            find "$PWD/"* -name "*.MP4" | add "$1" "$2"
             find "$PWD/"* -name "*.flac" | add "$1" "$2"
             find "$PWD/"* -name "*.m4a" | add "$1" "$2"
         elif [[ -a "$f" ]]
@@ -383,7 +384,7 @@ then
 elif [[ "$1" == "change" ]]
 then
     setplaylist "$2"
-
+ 
 elif [[ "$1" == "currentplaylist" ]]
 then
     cat "$currentplaylist"
@@ -397,7 +398,6 @@ then
     echo "Playing playlist - $1"
 
     setplaylist "$1"
-    startplaying &
 
 else
     $0 main
