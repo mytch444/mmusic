@@ -19,15 +19,13 @@ changed by editing "config.h" and recompiling it.
 Installation
 ------------
 
-You will need mpv then run the following
+You will either need mpv or need to modify the mmusicd file to change what command 
+is used to play a file. Then run
 
-    make
+    $ make
+    $ make install
 
-To compile, then run
-    
-    make install
-
-To install the files to /usr/local/bin/
+This installs the files to /usr/local/bin/
 
 Todo
 ----
