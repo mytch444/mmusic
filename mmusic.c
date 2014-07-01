@@ -194,16 +194,21 @@ void drawstring(char *string, int r, int c) {
     message("Well how the fuck am I supposed to draw a null string huh, huh!");
     return;
   }
+  
   getyx(wnd, or, oc);
-  mvaddnstr(r, c, string, cmax - c);
+  mvaddnstr(r, c, string, cmax - c - 1);
   move(or, oc);
 }
 
 void drawfullstring(char *string, int r, int c) {
   drawstring(string, r, c);
-  char space[cmax - LEN(string) + 1];
+
+  int len = cmax - c - LEN(string);
+  if (len < 1) return;
+  
+  char space[len];
   int i;
-  for (i = 0; i < cmax - LEN(string); i++) space[i] = ' ';
+  for (i = 0; i < len; i++) space[i] = ' ';
   space[i] = '\0';
   
   drawstring(space, r, c + LEN(string));
