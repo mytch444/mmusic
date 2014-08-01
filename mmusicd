@@ -137,10 +137,10 @@ function startplaying {
             fi
         fi
 
-        echo "$song" > $playing
-	    mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
+        echo "$song" > "$playing"
+	mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
         #mplayer -really-quiet -slave -input file="$fifo" "$song"
-
+	    
         if [[ -a "$stoploop" ]]
         then
             break
@@ -173,7 +173,7 @@ function getrandom {
 function getnext {
     list="$playlists/`cat $currentplaylist`"
     playing_raw="`cat $playing`"
-    playing_clean=`echo $playing_raw | sed "s/\[/\\\\\[/g" | sed "s/\]/\\\\\]/g"`
+    playing_clean="`echo $playing_raw | sed "s/\[/\\\\\[/g" | sed "s/\]/\\\\\]/g"`"
     song=`grep -A1 "$playing_clean" $list | tail -n 1`
     echo "$song"
 }

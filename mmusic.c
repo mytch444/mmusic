@@ -117,7 +117,10 @@ void gotosong(char *song);
 void gotopos(int p);
 
 void *update();
+
 void drawbar();
+void drawlist();
+void drawcursor();
 
 void checkkeys(int key);
 
@@ -235,27 +238,47 @@ void playsong(char *s) {
   system(buf);
 }
 
-void loadsongs(char *list) {
-  FILE* p;
-  int i;
-  
-  for (i = 0; i < lines; i++)
-    free(songs[i]);
-  if (i > 0)
-    free(songs);
+int numsongs(char *list) {
+  FILE *p;
+  int l;
   
   char linesc[1024];
   sprintf(linesc, "%s | wc -l", list);
   p = popen(linesc, "r");
-  if (!p)
-    return error();
+  if (!p) {
+    error();
+    return -1;
+  }
   
-  char buf[12];
-  fgets(buf, sizeof(char) * 12, p);
+  char buf[32];
+  fgets(buf, sizeof(char) * 32, p);
   pclose(p);
   
-  lines = atoi(buf); 
-  if (lines < 1) lines = 1;
+  l = atoi(buf); 
+
+  return l;
+}
+
+void loadsongs(char *list) {
+  FILE *p;
+  int i;
+
+  if (songs) {
+    for (i = 0; i < lines; i++)
+      if (songs[i])
+	free(songs[i]);
+    free(songs);
+    songs = NULL;
+  }
+  
+  lines = numsongs(list);
+  if (lines < 1) {
+    lines = 1;
+    songs = malloc(sizeof(char*));
+    songs[0] = malloc(2048 * sizeof(char));
+    sprintf(songs[0], "There are no songs in '%s'!!", list);
+    return;
+  }
   
   p = popen(list, "r");
   if (!p)
@@ -270,12 +293,12 @@ void loadsongs(char *list) {
     
     songs[i][LEN(songs[i])] = '\0'; // Replaces the new line char with null.
   }
+
+  pclose(p);
   
   if (locations)
     free(locations);
   locations = malloc(lines * sizeof(int)); // Cant be more matches than the number of songs getting checked right?
-  
-  pclose(p);
 }
 
 char* get_string(char *start) {
@@ -531,6 +554,21 @@ void drawlist() {
   }
 }
 
+void drawcursor() {
+  if (oldcursor >= 0 && offset + oldcursor < lines) {
+    clear_row(oldcursor);
+    drawfullstring(songs[offset + oldcursor], oldcursor, 2);
+  }
+
+  oldoffset = offset;
+  oldcursor = cursor;
+
+  color_set(2, NULL); 
+  drawfullstring(songs[offset + cursor], cursor, 2);
+  drawstring("= ", cursor, 0);
+  color_set(1, NULL); 
+}
+
 void *updateloop() {
   int r, c;
   while (!quitting) {
@@ -539,6 +577,10 @@ void *updateloop() {
       rmax = r;
       cmax = c;
       
+      drawlist();
+    }
+
+    if (updateupcoming()) {
       drawlist();
     }
     
@@ -668,6 +710,17 @@ void showupcoming() {
   drawbar();
 }
 
+int updateupcoming() {
+  if (mode != MODE_UPCOMING || lines == numsongs(upcomingmusiccommand))
+    return 0;
+  else {
+    loadsongs(upcomingmusiccommand);
+    if (offset + cursor >= lines)
+      cursor = lines - offset - 1;
+    return 1;
+  }
+}
+
 int main(int argc, char *argv[]) {
   int d, i;
   
@@ -745,23 +798,11 @@ int main(int argc, char *argv[]) {
     
     if (cursor > lines - 1)
       cursor = lines - 1;
-    
-    if (oldoffset != offset)
+
+    if (offset != oldoffset || updateupcoming())
       drawlist();
-    
-    if (offset == oldoffset) {
-      clear_row(oldcursor);
-      drawfullstring(songs[offset + oldcursor], oldcursor, 2);
-    }
-    
-    oldoffset = offset;
-    oldcursor = cursor;
-    
-    color_set(2, NULL); 
-    drawfullstring(songs[offset + cursor], cursor, 2);
-    drawstring("= ", cursor, 0);
-    color_set(1, NULL); 
-    
+
+    drawcursor();
     drawbar();
     
     refresh();
