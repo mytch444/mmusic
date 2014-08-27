@@ -456,7 +456,7 @@ char* currentplayingsong() {
   if (!playingf) {
     error();
   } else {
-    fgets(playing, sizeof(char) * (cmax - 2), playingf);
+    fgets(playing, sizeof(char) * 1000, playingf);
     playing[LEN(playing)] = '\0';
   }
   

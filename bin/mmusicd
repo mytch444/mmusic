@@ -138,8 +138,8 @@ function startplaying {
         fi
 
         echo "$song" > "$playing"
-	mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
-        #mplayer -really-quiet -slave -input file="$fifo" "$song"
+	#mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
+        mplayer -really-quiet -slave -input file="$fifo" "$song"
 	    
         if [[ -a "$stoploop" ]]
         then
