@@ -138,8 +138,8 @@ function startplaying {
         fi
 
         echo "$song" > "$playing"
-	#mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
-        mplayer -really-quiet -slave -input file="$fifo" "$song"
+	mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
+        #mplayer -really-quiet -slave -input file="$fifo" "$song"
 	    
         if [[ -a "$stoploop" ]]
         then
@@ -201,25 +201,10 @@ function sortlist {
 }
 
 function add {
-    if [[ -z "$3" ]]
-    then
-        for (( ; ; ))
-        do
-            read adding
-            if [[ -z "$adding" ]]
-            then
-                return;
-            fi
-            add "$1" "$2" "$adding"
-        done
-    fi
+    file="$2"
+    pos="$1"
 
-    file="$1"
-    pos="$2"
-
-    tmpname="mmusic_add_tmp"
-    suffix=`find $tmp/ -maxdepth 1 -name "$tmpname*" | wc -l`
-    tmp1="$tmp/$tmpname$suffix"
+    tmp1="$tmp/add_tmp"
 
     touch "$tmp1"
 
@@ -228,10 +213,8 @@ function add {
         if [[ -d "$f" ]]
         then
             cd "$f"
-            find "$PWD/"* -name "*.mp3" | add "$1" "$2"
-            find "$PWD/"* -name "*.MP4" | add "$1" "$2"
-            find "$PWD/"* -name "*.flac" | add "$1" "$2"
-            find "$PWD/"* -name "*.m4a" | add "$1" "$2"
+            find "$PWD/"* -regextype posix-extended -iregex ".*(mp3|flac|m4a)" >> "$tmp1"
+	   	    
         elif [[ -a "$f" ]]
         then
             echo "$f" >> "$tmp1"
@@ -242,7 +225,7 @@ function add {
     
     if [[ "$pos" == "start" ]]
     then
-        tmp2="$tmp/$tmpname$(( $suffix + 1 ))"
+        tmp2="$tmp/add_tmp_2"
         cat "$tmp1" > "$tmp2"
         cat "$file" >> "$tmp2"
         cat "$tmp2" > "$file"
@@ -287,28 +270,29 @@ then
     rm $tmp/*
 
 elif [[ "$1" == "add" ]]
-then 
- 
-    if [[ "$2" == "upcoming" ]]
-    then
-        file="$upcoming"
-        pos="end"
-    elif [[ "$2" == "next" ]]
-    then
-        file="$upcoming"
-        pos="start"
+then
+    if [[ "$2" == "upcoming" ]]; then
+	file="$upcoming"
+	pos="end"
+    elif [[ "$2" == "next" ]]; then
+	file="$upcoming"
+	pos="start"
     else
-        file="$playlists/$2"
-        pos="sort"
+	file="$playlists/$2"
+	if [[ ! -a "$file" ]]; then
+	    touch "$file"
+	fi
+	
+	pos="sort"
     fi
-
-    add "$file" "$pos" "${@:3}"
-
-    if [[ "$pos" == "sort" ]] 
-    then
-        sortlist "$playlists/$2"
+	
+    add "$pos" "$file" "${@:3}"
+    if [[ "$pos" == "sort" ]]; then
+	sortlist "$playlists/$2"
+	add "$sort" "$playlists/main" "${@:3}"
+	sortlist "$playlists/main"
     fi
-
+    
 elif [[ "$1" == "playing" ]]
 then
     if [[ -a "$playing" ]]
