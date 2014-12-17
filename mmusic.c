@@ -10,7 +10,6 @@ int MODE_PLAYLIST           = 0;
 int MODE_LIST               = 1;
 int MODE_UPCOMING           = 2;
 
-char mmusiccommand[256]     = "mmusicd";
 char *stopdaemoncommand     = "mmusicd stop";
 
 char *pausecommand          = "mmusicd pause";
