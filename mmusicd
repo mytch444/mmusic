@@ -34,8 +34,8 @@ function usage {
     echo
     echo "      start [playlist]    - starts playing playlist or playlist main if none given."
     echo
-    echo "      list                - prints the current playlist files contents."
-    echo "      upcoming            - print the upcoming file."
+    echo "      playlist-file       - prints the current playlist files contents."
+    echo "      upcoming-file       - print the upcoming file."
     echo "      playing             - prints the currently playing song or nothing if not playing."
     echo
     echo "      add [playlist|upcoming|next] file-or-folder-to-add"
@@ -128,7 +128,6 @@ function startplaying {
 
         echo "$song" > "$playing"
         mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
-        #mplayer -really-quiet -slave -input file="$fifo" "$song"
 	    
         if [[ -a "$stoploop" ]]; then
             break
@@ -298,10 +297,10 @@ elif [[ "$1" == "playing" ]]; then
         echo "Not playing"
     fi
 
-elif [[ "$1" == "upcoming" ]]; then
+elif [[ "$1" == "upcoming-file" ]]; then
     cat "$upcoming"
 
-elif [[ "$1" == "list" ]]; then
+elif [[ "$1" == "playlist-file" ]]; then
     cat "$currentplaylist"
 
 elif [[ "$1" == "pause" ]]; then

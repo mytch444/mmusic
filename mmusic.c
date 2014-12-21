@@ -22,8 +22,8 @@ char *ispausedcommand       = "mmusicd paused";
 
 char *israndomcommand       = "mmusicd israndom";
 
-char *listmusiccommand      = "mmusicd list";
-char *upcomingmusiccommand  = "mmusicd upcoming";
+char *playlistmusiccommand  = "mmusicd playlist-file";
+char *upcomingmusiccommand  = "mmusicd upcoming-file";
 char *playlistscommand      = "mmusicd playlists";
 
 char *changeplaylistcommand = "mmusicd change \"%s\"";
@@ -96,7 +96,7 @@ int LEN(const char *str);
 void drawstring(char *string, int r, int c);
 void drawfullstring(char *string, int r, int c);
 void clear_row_row(int r);
-void error();
+void error(char *mesg);
 void message(char *string);
 
 char* safe_name(char *string);
@@ -193,10 +193,8 @@ void drawstring(char *string, int r, int c) {
     int or, oc;
     if (r > rmax || c > cmax || r < 0 || c < 0)
         return;
-    if (string == NULL) {
-        message("Well how the fuck am I supposed to draw a null string huh, huh!");
-        return;
-    }
+    if (string == NULL)
+        return error("NULL string.");
 
     getyx(wnd, or, oc);
     mvaddnstr(r, c, string, cmax - c - 1);
@@ -226,8 +224,11 @@ void message(char *string) {
     drawstring(string, rmax - 1, 0);
 }
 
-void error() {
-    message("An error occured");
+void error(char *mesg) {
+    char *error = malloc(sizeof(char) * (strlen(mesg) + 8));
+    sprintf(error, "ERROR: %s", mesg);
+    message(error);
+    free(error);
     getch();
     clear_row(rmax - 1);
 }
@@ -246,7 +247,7 @@ int numsongs(char *list) {
     sprintf(linesc, "%s | wc -l", list);
     p = popen(linesc, "r");
     if (!p) {
-        error();
+        error("Failed to get line count of playlist!");
         return -1;
     }
 
@@ -262,6 +263,7 @@ int numsongs(char *list) {
 void loadsongs(char *list) {
     FILE *p;
     int i;
+    char *filename;
 
     if (songs) {
         for (i = 0; i < lines; i++)
@@ -282,7 +284,7 @@ void loadsongs(char *list) {
 
     p = popen(list, "r");
     if (!p)
-        return error();
+        return error("Failed to open playlist-file!");
 
     songs = malloc(lines * sizeof(char*));
     for (i = 0; i < lines; i++) {
@@ -291,14 +293,15 @@ void loadsongs(char *list) {
         if (!fgets(songs[i], sizeof(char) * 2048, p))
             break;
 
-        songs[i][LEN(songs[i])] = '\0'; // Replaces the new line char with null.
+        songs[i][LEN(songs[i])] = '\0'; //Replaces the new line char with null.
     }
 
     pclose(p);
 
     if (locations)
         free(locations);
-    locations = malloc(lines * sizeof(int)); // Cant be more matches than the number of songs getting checked right?
+     // Cant be more matches than the number of songs getting checked right?
+    locations = malloc(lines * sizeof(int));
 }
 
 char* get_string(char *start) {
@@ -454,7 +457,7 @@ char* currentplayingsong() {
     FILE *playingf = popen(playingcommand, "r");
 
     if (!playingf) {
-        error();
+        error("Failed to run playingcommand.");
     } else {
         fgets(playing, sizeof(char) * 1000, playingf);
         playing[LEN(playing)] = '\0';
@@ -472,7 +475,7 @@ char* currentplaylist() {
     FILE *playingf = popen(currentplaylistcommand, "r");
 
     if (!playingf) {
-        error();
+        error("Failed to run currentplaylistcommand.");
     } else {
         fgets(playing, sizeof(char) * (cmax - 2), playingf);
         playing[LEN(playing)] = '\0';
@@ -490,7 +493,7 @@ void updateispaused() {
     FILE *pausedf = popen(ispausedcommand, "r");
 
     if (!pausedf) {
-        error();
+        error("Failed to run ispausedcommand.");
     } else {
         fgets(paused, sizeof(char) * 3, pausedf);
         pclose(pausedf);
@@ -508,7 +511,7 @@ void updateisrandom() {
     FILE *randomf = popen(israndomcommand, "r");
 
     if (!randomf) {
-        error();
+        error("Failed to run israndomcommand.");
     } else {
         fgets(random, sizeof(char) * 3, randomf);
         pclose(randomf);
@@ -632,7 +635,7 @@ void removecursor() {
 
     if (mode == MODE_LIST) {
         playlist = currentplaylist();
-        list = listmusiccommand;
+        list = playlistmusiccommand;
     } else if (mode == MODE_UPCOMING) {
         playlist = "upcoming";
         list = upcomingmusiccommand;
@@ -690,7 +693,7 @@ void showlist() {
     positions[mode][0] = offset;
     positions[mode][1] = cursor;
     mode = MODE_LIST;
-    loadsongs(listmusiccommand);
+    loadsongs(playlistmusiccommand);
     offset = oldoffset = positions[mode][0];
     cursor = oldcursor = positions[mode][1];
     clear();
