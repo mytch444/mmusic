@@ -163,16 +163,11 @@ function getrandom {
 function getnext {
     checktmp
 
-    echo "getting next out of '$currentplaylist'" >> ~/m
     playing_raw="`cat $playing`"
-    echo "raw: $playing_raw" >> ~/m
     playing_clean="`echo $playing_raw | \
         sed "s/\[/\\\\\[/g" | sed "s/\]/\\\\\]/g"`"
-    echo "clean: $playing_clean" >> ~/m
     songs=`grep -A1 "$playing_clean" "$currentplaylist"`
-    echo "songs: \"$songs\"" >> ~/m
     song=`echo "$songs" | tail -n1`
-    echo "song: $song" >> ~/m
     echo "$song"
 }
 
@@ -273,12 +268,10 @@ elif [[ "$1" == "add" ]]; then
 	    fi
 	    pos="sort"
     fi
-	
+
     add "$pos" "$file" "${@:3}"
     if [[ "$pos" == "sort" ]]; then
-	    sortlist "$playlists/$2"
-	    add "$sort" "$playlists/main" "${@:3}"
-	    sortlist "$playlists/main"
+	    sortlist "$file"
     fi
 
 elif [[ "$1" == "remove" ]]; then
