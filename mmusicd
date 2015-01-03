@@ -6,12 +6,14 @@ playlists="$home/playlists"
 upcoming="$home/upcomingmusic"
 
 tmp="/tmp/mmusic-$USER"
+
 fifo="$tmp/fifo"
 stoploop="$tmp/stoploop"
 playing="$tmp/playing"
 pausedfile="$tmp/paused"
-currentplaylist="$tmp/playlist"
+playlist="$tmp/playlist"
 israndom="$tmp/israndom"
+daemonpid="$tmp/daemonpid"
 
 if [[ ! -a "$home" ]]; then
     echo "Creating home at \"$home\""
@@ -52,10 +54,10 @@ function usage {
     echo "      random              - Toggle random."
     echo "      israndom            - Echo \"yes\" if random else \"no\"."
     echo
-    echo "      play file           - Plays file."
+    echo "      play [file]           - Plays file."
     echo
     echo "      playlists           - Lists playlists."
-    echo "      change playlist     - Stop's song and changes to playlist."
+    echo "      change [playlist]     - Stop's song and changes to playlist."
     echo
 }
 
@@ -78,35 +80,31 @@ function play {
 }
 
 function setplaylist {
-    playlist="$1"
+    nplaylist="$1"
 
-    if [[ ! -a "$playlist" ]]; then
-        playlist="$playlists/$1"
-        if [[ ! -a "$playlist" ]]; then
-            echo "Could not find playlist \"$1\""
-            exit
-        fi
+    if [[ ! -a "$nplaylist" ]]; then
+        echo "Could not find playlist \"$1\""
+        exit
     fi
     
-    LINES=`cat "$playlist" | wc -l`
+    LINES=`cat "$nplaylist" | wc -l`
     if [[ "$LINES" -eq "0" ]]; then
         echo "\"$1\" is empty so I will not play it."
         exit
     fi
+    
+    echo "Chaning to playlist '$nplaylist'"
 
-    if [[ -a "$currentplaylist" ]]; then
-        rm "$currentplaylist"
+    if [[ -a "$playlist" ]]; then
+        rm "$playlist"
     fi
 
-    ln -s "$playlist" "$currentplaylist"
+    ln -s "$nplaylist" "$playlist"
 }
 
 function startplaying {
-   if [[ -a "$fifo" ]]; then
-        exitd
-        exit
-    fi
-    
+    echo $$ > "$daemonpid"
+
     if [[ ! -a $playing ]]; then
         touch $playing
     fi
@@ -135,8 +133,6 @@ function startplaying {
 
         sleep 0.1
     done
-   
-    rm -r "$tmp"
 }
 
 function popupcoming {
@@ -154,9 +150,9 @@ function getrandom {
     checktmp
 
     RAND=`od -d -N2 -An /dev/urandom`
-    LINES=`cat "$currentplaylist" | wc -l`
-    N=$(( RAND % LINES + 1 ))
-    LINE=`head -$N $currentplaylist | tail -1`
+    LINES=`cat "$playlist" | wc -l`
+    N=$(( $RAND % $(( $LINES + 1)) ))
+    LINE=`head -$N $playlist | tail -1`
     echo "$LINE"
 }
 
@@ -166,7 +162,7 @@ function getnext {
     playing_raw="`cat $playing`"
     playing_clean="`echo $playing_raw | \
         sed "s/\[/\\\\\[/g" | sed "s/\]/\\\\\]/g"`"
-    songs=`grep -A1 "$playing_clean" "$currentplaylist"`
+    songs=`grep -A1 "$playing_clean" "$playlist"`
     song=`echo "$songs" | tail -n1`
     echo "$song"
 }
@@ -184,9 +180,16 @@ function exitd {
     checktmp
 
     touch "$stoploop"
-    if [[ -a "$fifo" ]]; then
-        echo "quit" > $fifo
+    sleep 0.1
+    echo "quit" > $fifo &
+
+    PID=`cat "$daemonpid"`
+    if [[ ! -z "`ps h $PID`" ]]; then
+        echo "Need to kill"
+        kill $pid
     fi
+
+    rm -r "$tmp"
 }
 
 function sortlist {
@@ -294,7 +297,7 @@ elif [[ "$1" == "upcoming-file" ]]; then
     cat "$upcoming"
 
 elif [[ "$1" == "playlist-file" ]]; then
-    cat "$currentplaylist"
+    cat "$playlist"
 
 elif [[ "$1" == "pause" ]]; then
     checktmp
@@ -337,21 +340,20 @@ elif [[ "$1" == "change" ]]; then
         $0 start
     fi
 
-    setplaylist "$2"
+    setplaylist "$playlists/$2"
     skip
  
 elif [[ "$1" == "start" ]]; then
-    if [[ ! -a "$tmp" ]]; then
-        mkdir "$tmp";
-    else
-        exit
+    if [[ -a "$tmp" ]]; then
+        exitd
     fi
-
     
+    mkdir "$tmp";
+
     if [[ -z "$2" ]]; then
         setplaylist "$playlists/main"
     else
-        setplaylist "$2"
+        setplaylist "$playlists/$2"
     fi
 
     startplaying &
