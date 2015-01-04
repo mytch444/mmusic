@@ -281,7 +281,7 @@ elif [[ "$1" == "remove" ]]; then
     if [[ "$2" == "upcoming" ]]; then
         file="$upcoming"
     else
-        file="$playlists/$2"
+        file="$playlist"
     fi
     
     remove "$file" "$3"

@@ -18,7 +18,7 @@ char *playcommand           = "mmusicd play \"%s\"";
 char *randomcommand         = "mmusicd random";
 
 char *playingcommand        = "mmusicd playing";
-char *ispausedcommand       = "mmusicd paused";
+char *ispausedcommand       = "mmusicd ispaused";
 
 char *israndomcommand       = "mmusicd israndom";
 
@@ -634,7 +634,7 @@ void removecursor() {
     char *list;
 
     if (mode == MODE_LIST) {
-        playlist = currentplaylist();
+        playlist = "current";
         list = playlistmusiccommand;
     } else if (mode == MODE_UPCOMING) {
         playlist = "upcoming";
