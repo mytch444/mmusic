@@ -300,7 +300,7 @@ void loadsongs(char *list) {
 
     if (locations)
         free(locations);
-     // Cant be more matches than the number of songs getting checked right?
+	// Cant be more matches than the number of songs getting checked right?
     locations = malloc(lines * sizeof(int));
 }
 
@@ -330,9 +330,11 @@ char* get_string(char *start) {
             break;
         } else if (c == KEY_BACKSPACE || c == 127) {
             if (i > 0) {
-                i--;
-                for (j = i; j < LEN(buf); j++) buf[j] = buf[j + 1];
-            }
+                for (j = --i; j < LEN(buf); j++) buf[j] = buf[j + 1];
+			} else {
+				buf[0] = '\0';
+				break;
+			}
         } else if (c == KEY_DC) {
             for (j = i; j < LEN(buf); j++) buf[j] = buf[j + 1];
         } else if (c == KEY_LEFT) {
@@ -355,6 +357,10 @@ char* get_string(char *start) {
 
     move(0, 0);
     curs_set(0);
+	
+	if (!buf[0])
+		message("");
+
     return buf;
 }
 
@@ -363,8 +369,8 @@ void search() {
 
     char *search = get_string("/");
 
-    if (search[0] == '\0')
-        return message("Done");
+	if (!search[0])
+		return;
 
     regex_t regex;
 

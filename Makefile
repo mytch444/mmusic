@@ -6,7 +6,7 @@ mmusic: mmusic.c
 clean:
 	rm mmusic
 
-install:
+install: all
 	install -Dm 755 mmusic   /usr/local/bin/mmusic
 	install -Dm 755 mmusicd  /usr/local/bin/mmusicd
 
