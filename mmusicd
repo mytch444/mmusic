@@ -5,6 +5,8 @@ home="$HOME/.config/mmusic"
 playlists="$home/playlists"
 upcoming="$home/upcomingmusic"
 
+mpvops="$home/mpv-ops"
+
 tmp="/tmp/mmusic-$USER"
 
 fifo="$tmp/fifo"
@@ -125,7 +127,8 @@ function startplaying {
         fi
 
         echo "$song" > "$playing"
-        mpv --audio-display=no -really-quiet -input-file="$fifo" "$song"
+        mpv --audio-display=no -really-quiet -input-file="$fifo" \
+			`cat "$mpvops"` "$song"
 	    
         if [[ -a "$stoploop" ]]; then
             break

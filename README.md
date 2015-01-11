@@ -1,9 +1,9 @@
 MMusic
 ======
 
-A simple music player that uses mpv as a slave to play its music. Has playlists,
-upcoming songs, and some other features.
-Works as a daemon and a curses interface to communicate with it.
+A simple music player that uses mpv as a slave to play its music. Has 
+playlists, upcoming songs, and some other features. Works as a daemon and a
+curses interface to communicate with it.
 
 Description
 -----------
@@ -11,20 +11,29 @@ Description
 Run "mmusicd help" for a help menu on what functions there are such as how to 
 create playlists and populate them.
 
-The ncurses interface "mmusic" is a simple interface that shows the list and 
-upcoming files and the song currently playing. Key commands can be changed by 
-editing "config.h" and recompiling it.
+The ncurses interface "mmusic" is a simple interface that has three modes, 
+one that lists playlists, one that lists songs in the current playlist and one
+that lists songs in upcoming.
+
+Key commands can be changed by editing "config.h" and recompiling it.
+
+Playlists are stored in ~/.config/mmusic/playlists as file containing a list of 
+songs seperated by new lines. Use `mmusicd add playlist [file | dir]`.
+
+Temp files are in /tmp/mmusic-$USER.
+
+Any options that need to be added to mpv can be put in ~/.config/mmusic/mpv-ops
+and will be added as is.
 
 Installation
 ------------
 
-You will either need mpv or need to modify the mmusicd file to change what 
+You will need either mpv or to modify the mmusicd file to change what 
 command  is used to play a file. Then run
 
-    $ make
-    $ make install
+    # make install 
 
-This installs the files to /usr/local/bin/
+To compile mmusic and install it and mmusicd to /usr/local/bin/
 
 Todo
 ----
