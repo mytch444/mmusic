@@ -196,15 +196,15 @@ function exitd {
 }
 
 function sortlist {
-    sort -f "$1" | uniq > "$tmp/sorting"
-    cat "$tmp/sorting" > "$1"
-    rm "$tmp/sorting"
+    sort -f "$1" | uniq > "/tmp/mmusicd-sorting"
+    mv "/tmp/mmusicd-sorting"  "$1"
 }
 
 function add {
     file="$2"
     pos="$1"
-
+	bwd=$PWD
+		
     tmp1="/tmp/add_tmp"
 
     touch "$tmp1"
@@ -212,12 +212,10 @@ function add {
     for f in "${@:3}"
     do
         if [[ -d "$f" ]]; then
-            cd "$f"
-            find "$PWD/"* -regextype posix-extended -iregex \
+            find "$bwd/$f/"* -regextype posix-extended -iregex \
                 ".*(mp3|flac|m4a|ogg)" >> "$tmp1"
-	   	    
         elif [[ -a "$f" ]]; then
-            echo "$f" >> "$tmp1"
+            echo "$bwd/$f" >> "$tmp1"
         else
             echo "No such file $f"
         fi
