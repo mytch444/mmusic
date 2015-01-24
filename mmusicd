@@ -5,8 +5,6 @@ home="$HOME/.config/mmusic"
 playlists="$home/playlists"
 upcoming="$home/upcomingmusic"
 
-mpvops="$home/mpv-ops"
-
 tmp="/tmp/mmusic-$USER"
 
 fifo="$tmp/fifo"
@@ -36,7 +34,7 @@ function usage {
     echo
     echo "      help                - shows this."
     echo
-    echo "      start [playlist]    - starts playing playlist or playlist main if none given."
+    echo "      start [playlist] ...   - starts playing playlist or playlist main if none given. Any arguments after [playlist] are given to mpv as args, useful if you want to play through a different device."
     echo
     echo "      playlist-file       - prints the current playlist files contents."
     echo "      upcoming-file       - print the upcoming file."
@@ -128,7 +126,7 @@ function startplaying {
 
         echo "$song" > "$playing"
         mpv --audio-display=no -really-quiet -input-file="$fifo" \
-			`cat "$mpvops"` "$song"
+			$@ "$song"
 	    
         if [[ -a "$stoploop" ]]; then
             break
@@ -212,10 +210,10 @@ function add {
     for f in "${@:3}"
     do
         if [[ -d "$f" ]]; then
-            find "$bwd/$f/"* -regextype posix-extended -iregex \
+            find "$f"* -regextype posix-extended -iregex \
                 ".*(mp3|flac|m4a|ogg)" >> "$tmp1"
         elif [[ -a "$f" ]]; then
-            echo "$bwd/$f" >> "$tmp1"
+            echo "$f" >> "$tmp1"
         else
             echo "No such file $f"
         fi
@@ -357,7 +355,7 @@ elif [[ "$1" == "start" ]]; then
         setplaylist "$playlists/$2"
     fi
 
-    startplaying &
+    startplaying ${@:3} &
 else
     if [[ "$1" != "help" ]]; then
         echo "Unknown option '$1'"

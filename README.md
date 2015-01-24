@@ -22,9 +22,6 @@ songs seperated by new lines. Use `mmusicd add playlist [file | dir]`.
 
 Temp files are in /tmp/mmusic-$USER.
 
-Any options that need to be added to mpv can be put in ~/.config/mmusic/mpv-ops
-and will be added as is.
-
 Installation
 ------------
 
