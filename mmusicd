@@ -10,8 +10,8 @@ tmp="/tmp/mmusic-$USER"
 fifo="$tmp/fifo"
 stoploop="$tmp/stoploop"
 playing="$tmp/playing"
+playlistfile="$tmp/playlist"
 pausedfile="$tmp/paused"
-playlist="$tmp/playlist"
 israndom="$tmp/israndom"
 daemonpid="$tmp/daemonpid"
 
@@ -32,32 +32,34 @@ function usage {
     echo "usage:"
     echo "   $0 command [options]"
     echo
-    echo "      help                - shows this."
+    echo "      help                - Shows this."
     echo
-    echo "      start [playlist] ...   - starts playing playlist or playlist main if none given. Any arguments after [playlist] are given to mpv as args, useful if you want to play through a different device."
+    echo "      start [playlist] ...- Starts playing playlist or playlist main if none given. Any arguments after [playlist] are given to mpv as args, useful if you want to play through a different device."
     echo
-    echo "      playlist-file       - prints the current playlist files contents."
-    echo "      upcoming-file       - print the upcoming file."
-    echo "      playing             - prints the currently playing song or nothing if not playing."
+    echo "      playlist-file       - Prints contents of the current playlist."
+    echo "      current-playlist    - Prints current playlist name."
+    echo "      upcoming-file       - Print contents of upcoming file."
+    echo "      playing             - Prints path to currently playing song."
     echo
     echo "      add [playlist|upcoming|next] file-or-folder-to-add"
-    echo "                          - add's the file or all [mp3|flac|m4a|ogg] files inside the folder to playlist. If there is no playlist with that name a new one will be created. If playlist is upcoming then the files are added to upcoming. If next then they are added to the begining of upcoming."
+    echo "                          - Add's the file or all [mp3|flac|m4a|ogg] files inside the folder to the playlist given. If there is no playlist with that name a new one will be created. If upcoming is given then the files are added to upcoming. If next then they are added to the begining of upcoming."
     echo "      remove [playlist|upcoming] n"
     echo "                          - Removes line n from playlist." 
     echo "      clear               - Clears the upcoming file."
     echo
     echo "      pause               - Pauses playing."
     echo "      ispaused            - Echos \"yes\" if paused else \"no\" (note: no output if not running)."
+	echo
     echo "      stop                - Stops the daemon."
     echo "      skip                - Skips current song."
     echo
     echo "      random              - Toggle random."
     echo "      israndom            - Echo \"yes\" if random else \"no\"."
     echo
-    echo "      play [file]           - Plays file."
+    echo "      play [file]         - Plays file."
     echo
     echo "      playlists           - Lists playlists."
-    echo "      change [playlist]     - Stop's song and changes to playlist."
+    echo "      change [playlist]   - Stop's song and changes to playlist."
     echo
 }
 
@@ -93,13 +95,9 @@ function setplaylist {
         exit
     fi
     
-    echo "Chaning to playlist '$nplaylist'"
+    echo "Chaning playlist to '$nplaylist'"
 
-    if [[ -a "$playlist" ]]; then
-        rm "$playlist"
-    fi
-
-    ln -s "$nplaylist" "$playlist"
+	echo "$nplaylist" > "$playlistfile"
 }
 
 function startplaying {
@@ -151,9 +149,9 @@ function getrandom {
     checktmp
 
     RAND=`od -d -N2 -An /dev/urandom`
-    LINES=`cat "$playlist" | wc -l`
+    LINES=`cat "\`cat \"$playlistfile\"\`" | wc -l`
     N=$(( $RAND % $(( $LINES + 1)) ))
-    LINE=`head -$N $playlist | tail -1`
+    LINE=`cat \`cat "$playlistfile"\` | head -$N | tail -1`
     echo "$LINE"
 }
 
@@ -163,7 +161,7 @@ function getnext {
     playing_raw="`cat $playing`"
     playing_clean="`echo $playing_raw | \
         sed "s/\[/\\\\\[/g" | sed "s/\]/\\\\\]/g"`"
-    songs=`grep -A1 "$playing_clean" "$playlist"`
+    songs=`cat "\`cat \"$playlistfile\"\`" | grep -A1 "$playing_clean"`
     song=`echo "$songs" | tail -n1`
     echo "$song"
 }
@@ -194,8 +192,10 @@ function exitd {
 }
 
 function sortlist {
-    sort -f "$1" | uniq > "/tmp/mmusicd-sorting"
-    mv "/tmp/mmusicd-sorting"  "$1"
+	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
+	touch /tmp/mmusicd-tmp-$n && \
+    sort -f "$1" | uniq > "/tmp/mmusicd-tmp-$n" && \
+    mv "/tmp/mmusicd-tmp-$n"  "$1"
 }
 
 function add {
@@ -233,14 +233,10 @@ function add {
 }
 
 function remove {
-    l=`cat "$1" | wc -l`
-    n=$(($2 - 1))
-    m=$(($l - $2))
-
-    cat "$1" | head -$n > /tmp/newfile
-    cat "$1" | tail -$m >> /tmp/newfile
-    cat /tmp/newfile > "$1"
-    rm /tmp/newfile
+	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
+	touch /tmp/mmusicd-tmp-$n && \
+	cat "$playlists/$1" | grep -v "$2" > /tmp/mmusicd-tmp-$n && \
+	mv /tmp/mmusicd-tmp-$n  "$playlists/$1"
 }
 
 if [[ "$1" == "play" ]]; then
@@ -277,13 +273,7 @@ elif [[ "$1" == "add" ]]; then
     fi
 
 elif [[ "$1" == "remove" ]]; then
-    if [[ "$2" == "upcoming" ]]; then
-        file="$upcoming"
-    else
-        file="$playlist"
-    fi
-    
-    remove "$file" "$3"
+    remove "$2" "$3"
 
 elif [[ "$1" == "playing" ]]; then
     if [[ -a "$playing" ]]; then
@@ -295,8 +285,11 @@ elif [[ "$1" == "playing" ]]; then
 elif [[ "$1" == "upcoming-file" ]]; then
     cat "$upcoming"
 
+elif [[ "$1" == "current-playlist" ]]; then
+    basename `cat "$playlistfile"`
+
 elif [[ "$1" == "playlist-file" ]]; then
-    cat "$playlist"
+	cat "`cat \"$playlistfile\"`"
 
 elif [[ "$1" == "pause" ]]; then
     checktmp

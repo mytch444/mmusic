@@ -1,15 +1,15 @@
 all: mmusic mmusicd
 
-mmusic: mmusic.c
+mmusic: mmusic.c config.h
 	gcc -o mmusic mmusic.c -lncursesw -lpthread
 
 clean:
 	rm mmusic
 
 install: all
-	install -Dm 755 mmusic   /usr/local/bin/mmusic
-	install -Dm 755 mmusicd  /usr/local/bin/mmusicd
+	install -Dm 755 mmusic   /usr/bin/mmusic
+	install -Dm 755 mmusicd  /usr/bin/mmusicd
 
 uninstall:
-	rm /usr/local/bin/mmusic
-	rm /usr/local/bin/mmusicd
+	rm /usr/bin/mmusic
+	rm /usr/bin/mmusicd
