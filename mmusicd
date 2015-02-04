@@ -95,8 +95,6 @@ function setplaylist {
         exit
     fi
     
-    echo "Chaning playlist to '$nplaylist'"
-
 	echo "$nplaylist" > "$playlistfile"
 }
 
@@ -278,8 +276,6 @@ elif [[ "$1" == "remove" ]]; then
 elif [[ "$1" == "playing" ]]; then
     if [[ -a "$playing" ]]; then
         cat "$playing"
-    else
-        echo "Not playing"
     fi
 
 elif [[ "$1" == "upcoming-file" ]]; then

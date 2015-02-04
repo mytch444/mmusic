@@ -1,40 +1,43 @@
 /*
-  This is the config file for mmusic.
+ * Set keybindings for mmusic.
  */
 
 #define CTR(a)  (a - 'a' + 1)
 
 static Key keys[] = {
-  { 'q',    quit },
-  { 27,     quit }, // Esc
-  { 'Q',    quitdaemon },
-  { 'p',    pause },
-  { 'r',    togglerandom },
-  { 'k',    up },
-  { 'j',    down },
-  { '\n',   playcursor },
-  { 's',    gotoplaying },
-  { 'l',    skip },
-  { '/',    search },
-  { 'n',    searchnext },
-  { 'N',    searchback },
+	{ '1',        showplaylists },
+	{ '2',        showlist },
+	{ '3',        showupcoming },
+	
+	{ 'p',        togglepause },
+	{ 'r',        togglerandom },
 
-  { 'a',    addupcoming },
-  { 'A',    addnext },
-  { 'd',    removecursor },
+	{ 'k',        up },
+	{ 'j',        down },
+	{ KEY_DOWN,   down },
+	{ KEY_UP,     up },
 
-  { '1',    showplaylists },
-  { '2',    showlist },
-  { '3',    showupcoming },
-  
-  { KEY_DOWN,    down },
-  { KEY_UP,      up },
-  { KEY_PPAGE,   pageup },
-  { KEY_NPAGE,   pagedown },
-  { KEY_END,     gotoend },
-  { KEY_HOME,    gotostart },
-  { CTR('n'),    down },
-  { CTR('p'),    up },
-  { CTR('f'),    pagedown },
-  { CTR('b'),    pageup },
+	{ '\n',       playcursor },
+	{ 's',        gotoplaying },
+	{ 'l',        skip },
+	{ '/',        search },
+	{ 'n',        searchnext },
+	{ 'N',        searchback },
+
+	{ 'a',        addupcoming },
+	{ 'A',        addnext },
+	{ 'd',        removecursor },
+
+	{ CTR('b'),   pageup },
+	{ KEY_PPAGE,  pageup },
+	{ CTR('f'),   pagedown },
+	{ KEY_NPAGE,  pagedown },
+
+	{ 'G',        gotoend },
+	{ KEY_END,    gotoend },
+	{ 'g',        gotostart },
+	{ KEY_HOME,   gotostart },
+
+	{ 'q',        quit },
+	{ 'Q',        quitdaemon },
 };

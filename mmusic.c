@@ -32,8 +32,8 @@ int mode;
 Song *songs;
 int nsongs;
 
-Song *searchsong;
 regex_t regex;
+int searchwrap;
 
 Song *cursors[3];
 int offsets[3];
@@ -49,7 +49,8 @@ int israndom;
 void quit();
 void quitdaemon();
 
-void pause();
+void togglerandom();
+void togglepause();
 void skip();
 
 void search();
@@ -73,8 +74,6 @@ void playcursor();
 void addupcoming();
 void addnext();
 void removecursor();
-
-void togglerandom();
 
 #include "config.h"
 
@@ -117,7 +116,6 @@ void exec(char *args[]) {
 	}
 }
 
-
 void quit() {
 	quitting = 1;
 }
@@ -135,7 +133,7 @@ void togglerandom() {
 	updateisrandom();
 }
 
-void pause() {
+void togglepause() {
 	char *p[3] = {"mmusicd", "pause", NULL};
 	exec(p);
 
@@ -337,8 +335,6 @@ void loadsongs() {
 	}
 
 	pclose(p);
-
-	searchsong = NULL;
 }
 
 char* getinput(char *start) {
@@ -414,8 +410,7 @@ void search() {
 	if (reti)
 		return message("Error initialising regex");
 
-	searchsong = songs;
-
+	searchwrap = 0;
 	searchn(1);
 }
 
@@ -429,27 +424,33 @@ void searchback() {
 
 void searchn(int n) {
 	int reti;
+	Song *s;
 
-	while (searchsong) {
+	s = cursor;
+	while (s) {
 		if (n > 0) 
-			searchsong = searchsong->next;
+			s = s->next;
 		else 
-			searchsong = searchsong->prev;
-		if (searchsong)
-			if (regexec(&regex, searchsong->s, 0, NULL, 0) == 0) break;
+			s = s->prev;
+		if (s) {
+			if (regexec(&regex, s->s, 0, NULL, 0) == 0)
+				break; 
+		} else if (searchwrap) {
+			if (n > 0)
+				s = songs;
+			else
+				for (s = songs; s && s->next; s = s->next);
+			searchwrap = 0;
+		}
 	}
 
-	if (searchsong) {
-		cursor = searchsong;
+	if (s) {
+		cursor = s;
 		offset = 0;
 		redraw = 1;
 	} else {
-		message("Could not find any matches!");
-		if (n > 0)
-			searchsong = songs;
-		else
-			for (searchsong = songs; searchsong && searchsong->next;
-					searchsong = searchsong->next);
+		message("Wrap?");
+		searchwrap = 1;
 	}
 }
 
@@ -599,6 +600,10 @@ void *updateloop() {
 			cmax = c;
 
 			height = rmax - 2;
+			
+			clear();
+			redraw = 1;
+			drawlist();
 		}
 
 		updateispaused();
@@ -626,14 +631,15 @@ void playcursor() {
 	if (mode == MODE_PLAYLISTS) {
 		char *changeplaylistargs[4] = {"mmusicd", "change", cursor->s, NULL};
 		exec(changeplaylistargs);
+		usleep(100000);
 		showlist();
-	} else
+	} else {
 		playsong(cursor->s);
-
-	if (cursor->next) {
-		cursor = cursor->next;
-		redraw = 1;
-		offset++;
+		if (cursor->next) {
+			cursor = cursor->next;
+			redraw = 1;
+			offset++;
+		}
 	}
 }
 
@@ -763,7 +769,7 @@ int main(int argc, char *argv[]) {
 		offsets[i] = 0;
 	}
 
-	songs = cursor = searchsong = NULL;
+	songs = cursor = NULL;
 	mode = MODE_PLAYLISTS;
 
 	clear();
