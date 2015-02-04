@@ -235,7 +235,7 @@ function add {
 function remove {
 	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
 	touch /tmp/mmusicd-tmp-$n && \
-	cat "$playlists/$1" | grep -v "$2" > /tmp/mmusicd-tmp-$n && \
+	grep -ve "$2" "$playlists/$1" > /tmp/mmusicd-tmp-$n && \
 	mv /tmp/mmusicd-tmp-$n  "$playlists/$1"
 }
 

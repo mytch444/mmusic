@@ -744,8 +744,8 @@ int main(int argc, char *argv[]) {
 	int d, i;
 	pthread_t pth;
 
-	wnd = initscr();
 	setlocale(LC_ALL, "");
+	wnd = initscr();
 	cbreak();
 	noecho();
 	start_color();
