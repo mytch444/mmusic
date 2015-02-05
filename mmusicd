@@ -1,130 +1,126 @@
 #!/bin/bash 
 
-home="$HOME/.config/mmusic"
+home=$HOME/.config/mmusic
 
-playlists="$home/playlists"
-upcoming="$home/upcomingmusic"
+playlists=$home/playlists
+upcoming=$home/upcoming
 
-tmp="/tmp/mmusic-$USER"
+tmp=/tmp/mmusic-$USER
 
-fifo="$tmp/fifo"
-stoploop="$tmp/stoploop"
-playing="$tmp/playing"
-playlistfile="$tmp/playlist"
-pausedfile="$tmp/paused"
-israndom="$tmp/israndom"
-daemonpid="$tmp/daemonpid"
+fifo=$tmp/fifo
+stoploop=$tmp/stoploop
+playing=$tmp/playing
+playlistfile=$tmp/playlist
+pausedfile=$tmp/paused
+israndom=$tmp/israndom
+daemonpid=$tmp/daemonpid
 
-if [[ ! -a "$home" ]]; then
+if [[ ! -a $home ]]; then
     echo "Creating home at \"$home\""
-    mkdir "$home"
+    mkdir $home
 fi
 
-if [[ ! -a "$upcoming" ]]; then
-    touch "$upcoming"
+if [[ ! -a $upcoming ]]; then
+    touch $upcoming
 fi
 
-if [[ ! -a "$playlists" ]]; then
-    mkdir "$playlists"
+if [[ ! -a $playlists ]]; then
+    mkdir $playlists
 fi
 
 function usage {
     echo "usage:"
     echo "   $0 command [options]"
     echo
-    echo "      help                - Shows this."
+    echo "      help                 - Shows this."
     echo
-    echo "      start [playlist] ...- Starts playing playlist or playlist main if none given. Any arguments after [playlist] are given to mpv as args, useful if you want to play through a different device."
+    echo "      start [playlist] ... - Starts playing playlist or playlist main if none given. Any arguments after [playlist] are given to mpv as args, useful if you want to play through a different device."
     echo
-    echo "      playlist-file       - Prints contents of the current playlist."
-    echo "      current-playlist    - Prints current playlist name."
-    echo "      upcoming-file       - Print contents of upcoming file."
-    echo "      playing             - Prints path to currently playing song."
+    echo "      playlist-file        - Prints contents of the current playlist."
+    echo "      current-playlist     - Prints current playlist name."
+    echo "      upcoming-file        - Print contents of upcoming file."
+    echo "      playing              - Prints path to currently playing song."
     echo
-    echo "      add [playlist|upcoming|next] file-or-folder-to-add"
-    echo "                          - Add's the file or all [mp3|flac|m4a|ogg] files inside the folder to the playlist given. If there is no playlist with that name a new one will be created. If upcoming is given then the files are added to upcoming. If next then they are added to the begining of upcoming."
-    echo "      remove [playlist|upcoming] n"
-    echo "                          - Removes line n from playlist." 
-    echo "      clear               - Clears the upcoming file."
+    echo "      add playlist path    - Adds file path or all [mp3|flac|m4a|ogg] files under path to playlist (creates playlist if no such playlist exists. Playlists can have any name other than 'upcoming' and 'next', these are special playlists, files added to upcoming will be played in order added next rather what would normally be played. The 'next' playlist adds files to the begining of 'upcoming'."
+    echo "      remove playlist path - Removes all lines from playlist that match path."
+    echo "      clear                - Clears the upcoming file."
     echo
-    echo "      pause               - Pauses playing."
-    echo "      ispaused            - Echos \"yes\" if paused else \"no\" (note: no output if not running)."
-	echo
-    echo "      stop                - Stops the daemon."
-    echo "      skip                - Skips current song."
+    echo "      pause                - Pauses playing."
+    echo "      ispaused             - Echos \"yes\" if paused else \"no\" (note: no output if not running)."
+	echo "      random               - Toggle random."
+    echo "      israndom             - Echo \"yes\" if random else \"no\"."
     echo
-    echo "      random              - Toggle random."
-    echo "      israndom            - Echo \"yes\" if random else \"no\"."
     echo
-    echo "      play [file]         - Plays file."
+    echo "      stop                 - Stops the daemon."
+    echo "      skip                 - Skips current song."
     echo
-    echo "      playlists           - Lists playlists."
-    echo "      change [playlist]   - Stop's song and changes to playlist."
+    echo "      play file            - Plays file."
+    echo "      playlists            - Lists playlists."
+    echo "      change playlist      - Stop's song and changes to playlist."
     echo
 }
 
 function checktmp {
-    if [[ ! -a "$tmp" ]]; then
+    if [[ ! -a $tmp ]]; then
         exit 1
     fi
 }
 
 function play {
-    old=`cat "$upcoming"`
-    song="$1"
-    echo "$song" > "$tmp/newup"
-    cat "$upcoming" >> "$tmp/newup"
-    cat "$tmp/newup" > "$upcoming"
-    rm "$tmp/newup"
-    echo "quit" > "$fifo"
-
-    [[ -a "$pausedfile" ]] && rm "$pausedfile"
+	while [ -a /tmp/mmusicd-$USER-lock ]; do sleep 0.1; done
+	touch /tmp/mmusicd-$USER-lock
+	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
+	(echo -n "$1"; cat $upcoming) > /tmp/mmusicd-tmp-$n
+	mv /tmp/mmusicd-tmp-$n $upcoming
+	rm /tmp/mmusicd-$USER-lock
+    
+    [[ -a $pausedfile ]] && rm $pausedfile
+	echo "quit" > $fifo
 }
 
 function setplaylist {
-    nplaylist="$1"
+    nplaylist=$1
 
-    if [[ ! -a "$nplaylist" ]]; then
+    if [[ ! -a $nplaylist ]]; then
         echo "Could not find playlist \"$1\""
         exit
     fi
     
-    LINES=`cat "$nplaylist" | wc -l`
-    if [[ "$LINES" -eq "0" ]]; then
+    LINES=`cat $nplaylist | wc -l`
+    if [[ $LINES -eq "0" ]]; then
         echo "\"$1\" is empty so I will not play it."
         exit
     fi
     
-	echo "$nplaylist" > "$playlistfile"
+	echo $nplaylist > $playlistfile
 }
 
 function startplaying {
-    echo $$ > "$daemonpid"
+    echo $$ > $daemonpid
 
     if [[ ! -a $playing ]]; then
         touch $playing
     fi
         
-    mkfifo "$fifo"
-    touch "$israndom"
+    mkfifo $fifo
+    touch $israndom
 
     for (( ; ; ))
     do
         song=`popupcoming`
 
         if [[ -z "$song" ]]; then
-            if [[ -a "$israndom" ]]; then
+            if [[ -a $israndom ]]; then
                 song=`getrandom`
             else
                 song=`getnext`
             fi
         fi
 
-        echo "$song" > "$playing"
-        mpv --audio-display=no -really-quiet -input-file="$fifo" \
-			$@ "$song"
+        echo "$song" > $playing
+        mpv --audio-display=no -really-quiet -input-file=$fifo $@ "$song"
 	    
-        if [[ -a "$stoploop" ]]; then
+        if [[ -a $stoploop ]]; then
             break
         fi
 
@@ -135,114 +131,113 @@ function startplaying {
 function popupcoming {
     checktmp
 
-    next=`cat "$upcoming" | head -1`
-    echo "$next"
+    echo `cat $upcoming | head -1`
 
-    tail -n +2 "$upcoming" > $tmp/upcoming
-    cat $tmp/upcoming > "$upcoming"
-    rm $tmp/upcoming
+    tail -n +2 $upcoming > $tmp/upcoming
+    mv $tmp/upcoming $upcoming
 }
 
 function getrandom {
     checktmp
 
     RAND=`od -d -N2 -An /dev/urandom`
-    LINES=`cat "\`cat \"$playlistfile\"\`" | wc -l`
+    LINES=`cat "\`cat $playlistfile\`" | wc -l`
     N=$(( $RAND % $(( $LINES + 1)) ))
-    LINE=`cat \`cat "$playlistfile"\` | head -$N | tail -1`
-    echo "$LINE"
+    LINE=`cat \`cat $playlistfile\` | head -$N | tail -1`
+    echo $LINE
 }
 
 function getnext {
     checktmp
 
-    playing_raw="`cat $playing`"
-    playing_clean="`echo $playing_raw | \
-        sed "s/\[/\\\\\[/g" | sed "s/\]/\\\\\]/g"`"
-    songs=`cat "\`cat \"$playlistfile\"\`" | grep -A1 "$playing_clean"`
-    song=`echo "$songs" | tail -n1`
-    echo "$song"
+	playing_song=`cat $playing`
+    songs=`cat "\`cat $playlistfile\`" | grep -A1 $playing_song`
+    song=`echo $songs | tail -n1`
+    echo $song
 }
 
 function skip {
     checktmp
 
-    echo "quit" > "$fifo"
-    if [[ -a "$pausedfile" ]]; then
-        rm "$pausedfile"
+    echo "quit" > $fifo
+    if [[ -a $pausedfile ]]; then
+        rm $pausedfile
     fi
 }
 
 function exitd {
     checktmp
 
-    touch "$stoploop"
+    touch $stoploop
     sleep 0.1
     echo "quit" > $fifo &
 
-    PID=`cat "$daemonpid"`
+    PID=`cat $daemonpid`
     if [[ ! -z "`ps h $PID`" ]]; then
         echo "Need to kill"
         kill $pid
     fi
 
-    rm -r "$tmp"
+    rm -r $tmp
 }
 
 function sortlist {
+	while [ -a /tmp/mmusicd-$USER-lock ]; do sleep 0.1; done
+	touch /tmp/mmusicd-$USER-lock
 	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
 	touch /tmp/mmusicd-tmp-$n && \
-    sort -f "$1" | uniq > "/tmp/mmusicd-tmp-$n" && \
-    mv "/tmp/mmusicd-tmp-$n"  "$1"
+    sort -f $1 | uniq > /tmp/mmusicd-tmp-$n && \
+    mv /tmp/mmusicd-tmp-$n  $1
+	rm /tmp/mmusicd-$USER-lock
 }
 
 function add {
-    file="$2"
-    pos="$1"
 	bwd=$PWD
 		
-    tmp1="/tmp/add_tmp"
-
-    touch "$tmp1"
+    tmp1=/tmp/add_tmp
+    touch $tmp1
 
     for f in "${@:3}"
     do
         if [[ -d "$f" ]]; then
-            find "$f"* -regextype posix-extended -iregex \
-                ".*(mp3|flac|m4a|ogg)" >> "$tmp1"
+            find "$f"/* -regextype posix-extended -iregex \
+                ".*(mp3|flac|m4a|ogg)" >> $tmp1
         elif [[ -a "$f" ]]; then
-            echo "$f" >> "$tmp1"
+            echo "$f" >> $tmp1
         else
             echo "No such file $f"
         fi
     done
     
-    if [[ "$pos" == "start" ]]; then
+    if [[ $1 == "start" ]]; then
         tmp2="/tmp/add_tmp_2"
-        cat "$tmp1" > "$tmp2"
-        cat "$file" >> "$tmp2"
-        cat "$tmp2" > "$file"
-        rm "$tmp2"
+        cat $tmp1 > $tmp2
+        cat $2 >> $tmp2
+        cat $tmp2 > $2
+        rm $tmp2
     else
-        cat "$tmp1" >> "$file"
+        cat $tmp1 >> $2
     fi
 
-    rm "$tmp1"
+    rm $tmp1
 }
 
 function remove {
+	while [ -a /tmp/mmusicd-$USER-lock ]; do sleep 0.1; done
+	touch /tmp/mmusicd-$USER-lock
 	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
 	touch /tmp/mmusicd-tmp-$n && \
-	grep -ve "$2" "$playlists/$1" > /tmp/mmusicd-tmp-$n && \
-	mv /tmp/mmusicd-tmp-$n  "$playlists/$1"
+	grep -ve $2 $playlists/$1 > /tmp/mmusicd-tmp-$n && \
+	mv /tmp/mmusicd-tmp-$n  $playlists/$1
+	rm /tmp/mmusicd-$USER-lock
 }
 
 if [[ "$1" == "play" ]]; then
     play "$2"
 
 elif [[ "$1" == "clear" ]]; then
-    rm "$upcoming"
-    touch "$upcoming"
+    rm $upcoming
+    touch $upcoming
 
 elif [[ "$1" == "skip" ]]; then
     skip
@@ -251,80 +246,80 @@ elif [[ "$1" == "stop" ]]; then
     exitd 
 
 elif [[ "$1" == "add" ]]; then
-    if [[ "$2" == "upcoming" ]]; then
-    	file="$upcoming"
+    if [[ $2 == "upcoming" ]]; then
+    	file=$upcoming
 	    pos="end"
     elif [[ "$2" == "next" ]]; then
-	    file="$upcoming"
+	    file=$upcoming
 	    pos="start"
     else
 	    file="$playlists/$2"
-	    if [[ ! -a "$file" ]]; then
-	        touch "$file"
+	    if [[ ! -a $file ]]; then
+	        touch $file
 	    fi
 	    pos="sort"
     fi
 
-    add "$pos" "$file" "${@:3}"
-    if [[ "$pos" == "sort" ]]; then
-	    sortlist "$file"
+    add $pos $file "${@:3}"
+    if [[ $pos == "sort" ]]; then
+	    sortlist $file
     fi
 
-elif [[ "$1" == "remove" ]]; then
-    remove "$2" "$3"
+elif [[ $1 == "remove" ]]; then
+    remove $2 $3
 
 elif [[ "$1" == "playing" ]]; then
-    if [[ -a "$playing" ]]; then
-        cat "$playing"
+    if [[ -a $playing ]]; then
+        cat $playing
     fi
 
 elif [[ "$1" == "upcoming-file" ]]; then
-    cat "$upcoming"
+    cat $upcoming
 
 elif [[ "$1" == "current-playlist" ]]; then
-    basename `cat "$playlistfile"`
+    basename `cat $playlistfile`
 
 elif [[ "$1" == "playlist-file" ]]; then
-	cat "`cat \"$playlistfile\"`"
+	cat "`cat $playlistfile`"
 
 elif [[ "$1" == "pause" ]]; then
     checktmp
 
-    echo "pause" > "$fifo"
-    if [[ -a "$pausedfile" ]]; then
-        rm "$pausedfile"
+    echo "pause" > $fifo
+    if [[ -a $pausedfile ]]; then
+        rm $pausedfile
     else
-        touch "$pausedfile"
+        touch $pausedfile
     fi
 
 elif [[ "$1" == "ispaused" ]]; then
     checktmp
 
-    if [[ -a "$pausedfile" ]]; then
+    if [[ -a $pausedfile ]]; then
         echo "yes"
     else
         echo "no"
     fi
 
 elif [[ "$1" == "random" ]]; then
-    if [[ -a "$israndom" ]]; then
-        rm "$israndom"
+    if [[ -a $israndom ]]; then
+        rm $israndom
     else
-        touch "$israndom"
+        touch $israndom
     fi
 
 elif [[ "$1" == "israndom" ]]; then
-    if [[ -a "$israndom" ]]; then
+    if [[ -a $israndom ]]; then
         echo "yes"
     else
         echo "no"
     fi
 
 elif [[ "$1" == "playlists" ]]; then
-    ls "$playlists"
+    ls $playlists
 
 elif [[ "$1" == "change" ]]; then
-    if [[ ! -a "$tmp" ]]; then
+    if [[ ! -a $tmp ]]; then
         $0 start
     fi
 
@@ -332,14 +327,14 @@ elif [[ "$1" == "change" ]]; then
     skip
  
 elif [[ "$1" == "start" ]]; then
-    if [[ -a "$tmp" ]]; then
+    if [[ -a $tmp ]]; then
         exitd
     fi
     
-    mkdir "$tmp";
+    mkdir $tmp;
 
-    if [[ -z "$2" ]]; then
-        setplaylist "$playlists/main"
+    if [[ -z $2 ]]; then
+        setplaylist $playlists/main
     else
         setplaylist "$playlists/$2"
     fi

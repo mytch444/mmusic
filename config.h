@@ -27,6 +27,7 @@ static Key keys[] = {
 	{ 'a',        addupcoming },
 	{ 'A',        addnext },
 	{ 'd',        removecursor },
+	{ 'u',        undoremove },
 
 	{ CTR('b'),   pageup },
 	{ KEY_PPAGE,  pageup },
