@@ -272,7 +272,6 @@ void reloadsongs(int m) {
 		o = popsong(ssongs[m], string);
 
 		if (o) {
-			fprintf(stderr, "found song so using it\n");
 			if (s) {
 				s->next = o;
 				s->next->prev = s;
@@ -302,7 +301,6 @@ void reloadsongs(int m) {
 
 	s = ssongs[m];
 	while (s) {
-		fprintf(stderr, "Freeing song as no longer part of list\n");
 		o = s;
 		s = s->next;
 		free(o);
