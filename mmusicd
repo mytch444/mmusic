@@ -233,6 +233,7 @@ function remove {
 }
 
 if [[ "$1" == "play" ]]; then
+    checktmp
     play "$2"
 
 elif [[ "$1" == "clear" ]]; then
@@ -269,17 +270,18 @@ elif [[ $1 == "remove" ]]; then
     remove $2 $3
 
 elif [[ "$1" == "playing" ]]; then
-    if [[ -a $playing ]]; then
-        cat $playing
-    fi
+    [[ -a $playing ]] && cat $playing
 
 elif [[ "$1" == "upcoming-file" ]]; then
-    cat $upcoming
+    checktmp
+	cat $upcoming
 
 elif [[ "$1" == "current-playlist" ]]; then
-    basename `cat $playlistfile`
+	[[ -a $playlistfile ]] && basename `cat $playlistfile`
 
 elif [[ "$1" == "playlist-file" ]]; then
+	checktmp
+
 	cat "`cat $playlistfile`"
 
 elif [[ "$1" == "pause" ]]; then
@@ -302,6 +304,8 @@ elif [[ "$1" == "ispaused" ]]; then
     fi
 
 elif [[ "$1" == "random" ]]; then
+	checktmp
+
     if [[ -a $israndom ]]; then
         rm $israndom
     else
@@ -309,6 +313,8 @@ elif [[ "$1" == "random" ]]; then
     fi
 
 elif [[ "$1" == "israndom" ]]; then
+	checktmp
+
     if [[ -a $israndom ]]; then
         echo "yes"
     else
@@ -319,27 +325,19 @@ elif [[ "$1" == "playlists" ]]; then
     ls $playlists
 
 elif [[ "$1" == "change" ]]; then
+	starting=""	
+
     if [[ ! -a $tmp ]]; then
-        $0 start
+		mkdir $tmp
+		starting="yes"
     fi
 
     setplaylist "$playlists/$2"
-    skip
+
+	[[ -z "$starting" ]] && skip || startplaying ${@:3} & 
  
 elif [[ "$1" == "start" ]]; then
-    if [[ -a $tmp ]]; then
-        exitd
-    fi
-    
-    mkdir $tmp;
-
-    if [[ -z $2 ]]; then
-        setplaylist $playlists/main
-    else
-        setplaylist "$playlists/$2"
-    fi
-
-    startplaying ${@:3} &
+   	$0 change ${@:2} 
 else
     if [[ "$1" != "help" ]]; then
         echo "Unknown option '$1'"
