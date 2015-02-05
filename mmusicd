@@ -147,13 +147,15 @@ function getrandom {
     echo $LINE
 }
 
+function cleansquare {
+	echo $@ | sed -e 's/\[/\\\[/g'
+}
+
 function getnext {
     checktmp
 
-	playing_song=`cat $playing`
-    songs=`cat "\`cat $playlistfile\`" | grep -A1 $playing_song`
-    song=`echo $songs | tail -n1`
-    echo $song
+	playing_song=`cleansquare \`cat $playing\``
+    cat `cat $playlistfile` | grep -a -A1 "$playing_song" | tail -n1
 }
 
 function skip {
@@ -227,8 +229,8 @@ function remove {
 	touch /tmp/mmusicd-$USER-lock
 	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
 	touch /tmp/mmusicd-tmp-$n && \
-	grep -ve $2 $playlists/$1 > /tmp/mmusicd-tmp-$n && \
-	mv /tmp/mmusicd-tmp-$n  $playlists/$1
+	grep -a -ve "`cleansquare $2`" $1 > /tmp/mmusicd-tmp-$n && \
+	mv /tmp/mmusicd-tmp-$n  $1
 	rm /tmp/mmusicd-$USER-lock
 }
 
@@ -267,7 +269,13 @@ elif [[ "$1" == "add" ]]; then
     fi
 
 elif [[ $1 == "remove" ]]; then
-    remove $2 $3
+    if [[ $2 == "upcoming" ]]; then
+    	file=$upcoming
+    else
+	    file="$playlists/$2"
+    fi
+
+	remove $file "$3"
 
 elif [[ "$1" == "playing" ]]; then
     [[ -a $playing ]] && cat $playing
