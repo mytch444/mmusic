@@ -46,7 +46,7 @@ int offset, oldoffset;
 
 Song *undoring;
 
-int quitting, redraw, reload, lock;
+int quitting, redraw, lock;
 
 int ispaused;
 int israndom;
@@ -212,11 +212,19 @@ int len(char *str) {
 	return (s - str);
 }
 
-void drawstring(char *string, int r, int c) {
+void drawnstring(char *string, int r, int c, int max) {
+	int l;
 	if (!string || r >= rmax || c >= cmax || r < 0 || c < 0)
 		return;
 
-	mvaddnstr(r, c, string, -1);
+	l = len(string);
+	if (l > max)
+		l = max;
+	mvaddnstr(r, c, string, l);
+}
+
+void drawstring(char *string, int r, int c) {
+	drawnstring(string, r, c, cmax - c);
 }
 
 void clearrow(int r) {
@@ -469,6 +477,8 @@ void gotoplaying() {
 		message("Could not find current playing song in list!");
 	}
 
+	oldcursor = NULL;
+
 	redraw = 1;
 }
 
@@ -552,10 +562,11 @@ void updateisrandom() {
 
 void drawbar() {
 	char *current = currentplayingsong();
+
 	color_set(2, NULL); 
 	clearrow(height);
-	if (current)
-		drawstring(current, height, 0);
+	if (current) 
+		drawnstring(current, height, 0, cmax - 4);
 
 	if (ispaused)
 		drawstring("P", height, cmax - 2);
@@ -598,9 +609,10 @@ void drawlist() {
 			drawstring(s->s, i, 1);
 	}
 
-	clearrow(oldoffset);
-	if (oldcursor)
+	if (oldcursor) {
+		clearrow(oldoffset);
 		drawstring(oldcursor->s, oldoffset, 1);
+	}
 
 	color_set(2, NULL);
 	clearrow(offset);
@@ -612,12 +624,15 @@ void drawlist() {
 }
 
 void draw() {
+	int i;
+
 	while (lock) 
 		usleep(1000);
 	lock = 1;
 
 	if (redraw) {
-		clear();
+		for (i = 0; i < height + 1; i++)
+			clearrow(i);
 		drawbar();
 	}
 
@@ -625,6 +640,8 @@ void draw() {
 		message("No songs!");
 	else
 		drawlist();
+
+	refresh();
 
 	lock = 0;
 }
@@ -706,7 +723,6 @@ void addupcoming() {
 	}
 
 	redraw = 1;
-	reload = 1;
 }
 
 void addnext() {
@@ -733,7 +749,6 @@ void addnext() {
 	}
 
 	redraw = 1;
-	reload = 1;
 }
 
 void removecursor() {
@@ -763,7 +778,6 @@ void removecursor() {
 
 	oldcursor = NULL;
 	redraw = 1;
-	reload = 1;
 
 	s->next = undoring;
 	undoring = s;
@@ -800,7 +814,6 @@ void undoremove() {
 	cursor = s;
 	offset = height / 2;
 	redraw = 1;
-	reload = 1;
 }
 
 void changemode(int m) {

@@ -34,7 +34,7 @@ function usage {
     echo
     echo "      help                 - Shows this."
     echo
-    echo "      start [playlist] ... - Starts playing playlist or playlist main if none given. Any arguments after [playlist] are given to mpv as args, useful if you want to play through a different device."
+    echo "      start playlist ... - Starts playing playlist or playlist main if none given. Any arguments after [playlist] are given to mpv as args, useful if you want to play through a different device."
     echo
     echo "      playlist-file        - Prints contents of the current playlist."
     echo "      current-playlist     - Prints current playlist name."
@@ -58,6 +58,9 @@ function usage {
     echo "      playlists            - Lists playlists."
     echo "      change playlist      - Stop's song and changes to playlist."
     echo
+	echo
+	echo "MMusicd - A simple mpv controller for playing and managing playlists."
+	echo "Your playlists are stored in $playlists, and always refered to by basenames, not full paths."
 }
 
 function checktmp {
