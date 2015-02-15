@@ -14,6 +14,7 @@ playlistfile=$tmp/playlist
 pausedfile=$tmp/paused
 israndom=$tmp/israndom
 daemonpid=$tmp/daemonpid
+lockfile=$tmp/lock
 
 if [[ ! -a $home ]]; then
     echo "Creating home at \"$home\""
@@ -69,13 +70,21 @@ function checktmp {
     fi
 }
 
+function lock {
+	while [ -a $lockfile ]; do
+		sleep 0.01
+	done
+	touch $lockfile
+}
+
+function unlock {
+	rm $lockfile
+}
+
 function play {
-	while [ -a /tmp/mmusicd-$USER-lock ]; do sleep 0.1; done
-	touch /tmp/mmusicd-$USER-lock
 	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
 	(echo -n "$1"; cat $upcoming) > /tmp/mmusicd-tmp-$n
 	mv /tmp/mmusicd-tmp-$n $upcoming
-	rm /tmp/mmusicd-$USER-lock
     
     [[ -a $pausedfile ]] && rm $pausedfile
 	echo "quit" > $fifo
@@ -187,13 +196,11 @@ function exitd {
 }
 
 function sortlist {
-	while [ -a /tmp/mmusicd-$USER-lock ]; do sleep 0.1; done
-	touch /tmp/mmusicd-$USER-lock
-	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
-	touch /tmp/mmusicd-tmp-$n && \
-    sort -f $1 | uniq > /tmp/mmusicd-tmp-$n && \
-    mv /tmp/mmusicd-tmp-$n  $1
-	rm /tmp/mmusicd-$USER-lock
+	lock
+	touch /tmp/mmusicd-$USER-tmp && \
+    sort -f $1 | uniq > /tmp/mmusicd-$USER-tmp && \
+    mv /tmp/mmusicd-$USER-tmp $1
+	unlock
 }
 
 function add {
@@ -205,7 +212,7 @@ function add {
     for f in "${@:3}"
     do
         if [[ -d "$f" ]]; then
-            find "$f"/* -regextype posix-extended -iregex \
+            find "$f" -regextype posix-extended -iregex \
                 ".*(mp3|flac|m4a|ogg)" >> $tmp1
         elif [[ -a "$f" ]]; then
             echo "$f" >> $tmp1
@@ -213,7 +220,9 @@ function add {
             echo "No such file $f"
         fi
     done
-    
+   
+	lock
+
     if [[ $1 == "start" ]]; then
         tmp2="/tmp/add_tmp_2"
         cat $tmp1 > $tmp2
@@ -225,16 +234,16 @@ function add {
     fi
 
     rm $tmp1
+
+	unlock
 }
 
 function remove {
-	while [ -a /tmp/mmusicd-$USER-lock ]; do sleep 0.1; done
-	touch /tmp/mmusicd-$USER-lock
-	n=$(( `find /tmp/ -name "mmusicd-tmp-*" | wc -l` + 1 ))
-	touch /tmp/mmusicd-tmp-$n && \
-	grep -a -ve "`cleansquare $2`" $1 > /tmp/mmusicd-tmp-$n && \
-	mv /tmp/mmusicd-tmp-$n  $1
-	rm /tmp/mmusicd-$USER-lock
+	lock
+	touch /tmp/mmusicd-$USER-tmp && \
+	grep -a -ve "`cleansquare $2`" $1 > /tmp/mmusicd-$USER-tmp && \
+	mv /tmp/mmusicd-$USER-tmp  $1
+	unlock
 }
 
 if [[ "$1" == "play" ]]; then

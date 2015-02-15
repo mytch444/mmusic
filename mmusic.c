@@ -451,7 +451,7 @@ void searchn(int n) {
 		offset = height / 2;
 		redraw = 1;
 	} else {
-		message("Wrap?");
+		message("Press n/N again to wrap?");
 		searchwrap = 1;
 	}
 }
