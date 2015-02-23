@@ -119,7 +119,9 @@ void updateisrandom();
 
 void exec(char *args[]) {
 	if (fork() == 0) {
-		execvp(args[0], args);
+		if (fork() == 0) 
+			execvp(args[0], args);
+		exit(0);
 	}
 }
 
