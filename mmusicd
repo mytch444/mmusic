@@ -14,7 +14,7 @@ playlistfile=$tmp/playlist
 pausedfile=$tmp/paused
 israndom=$tmp/israndom
 daemonpid=$tmp/daemonpid
-lockfile=$tmp/lock
+lockfile=/tmp/mmusicd-$USER-lock
 
 if [[ ! -a $home ]]; then
     echo "Creating home at \"$home\""
@@ -240,7 +240,6 @@ function add {
 
 function remove {
 	lock
-	touch /tmp/mmusicd-$USER-tmp && \
 	grep -a -ve "`cleansquare $2`" $1 > /tmp/mmusicd-$USER-tmp && \
 	mv /tmp/mmusicd-$USER-tmp  $1
 	unlock
