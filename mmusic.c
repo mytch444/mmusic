@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <regex.h>
 #include <locale.h>
+#include <signal.h>
 
 int MODE_PLAYLISTS          = 0;
 int MODE_LIST               = 1;
@@ -118,11 +119,8 @@ void updateispaused();
 void updateisrandom();
 
 void exec(char *args[]) {
-	if (fork() == 0) {
-		if (fork() == 0) 
-			execvp(args[0], args);
-		exit(0);
-	}
+	if (fork() == 0)
+		execvp(args[0], args);
 }
 
 void quit() {
@@ -875,6 +873,8 @@ int main(int argc, char *argv[]) {
 	pthread_t pth;
 
 	setlocale(LC_ALL, "");
+	signal(SIGCHLD, SIG_IGN);
+
 	wnd = initscr();
 	cbreak();
 	noecho();
