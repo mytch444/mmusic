@@ -197,8 +197,7 @@ function exitd {
 
 function sortlist {
 	lock
-	touch /tmp/mmusicd-$USER-tmp && \
-    sort -f $1 | uniq > /tmp/mmusicd-$USER-tmp && \
+    sort -f $1 | uniq > /tmp/mmusicd-$USER-tmp
     mv /tmp/mmusicd-$USER-tmp $1
 	unlock
 }
@@ -240,7 +239,7 @@ function add {
 
 function remove {
 	lock
-	grep -a -ve "`cleansquare $2`" $1 > /tmp/mmusicd-$USER-tmp && \
+	grep -a -ve "`cleansquare $2`" $1 > /tmp/mmusicd-$USER-tmp
 	mv /tmp/mmusicd-$USER-tmp  $1
 	unlock
 }
