@@ -12,6 +12,9 @@ static Key keys[] = {
 	{ 'p',        togglepause },
 	{ 'r',        togglerandom },
 
+	{ '+',        increasevolume },
+	{ '-',        decreasevolume },
+
 	{ 'k',        up },
 	{ 'j',        down },
 	{ KEY_DOWN,   down },

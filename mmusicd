@@ -6,6 +6,7 @@ playlists=$home/playlists
 upcoming=$home/upcoming
 
 tmp=/tmp/mmusic-$USER
+lockfile=/tmp/mmusicd-$USER-lock
 
 fifo=$tmp/fifo
 stoploop=$tmp/stoploop
@@ -14,7 +15,7 @@ playlistfile=$tmp/playlist
 pausedfile=$tmp/paused
 israndom=$tmp/israndom
 daemonpid=$tmp/daemonpid
-lockfile=/tmp/mmusicd-$USER-lock
+volume=$tmp/volume
 
 if [[ ! -a $home ]]; then
     echo "Creating home at \"$home\""
@@ -59,6 +60,8 @@ function usage {
     echo "      playlists            - Lists playlists."
     echo "      change playlist      - Stop's song and changes to playlist."
     echo
+	echo "		set-volume n         - Sets volume to n%."
+	echo
 	echo
 	echo "MMusicd - A simple mpv controller for playing and managing playlists."
 	echo "Your playlists are stored in $playlists, and always refered to by basenames, not full paths."
@@ -117,6 +120,8 @@ function startplaying {
     mkfifo $fifo
     touch $israndom
 
+	echo 60 > "$volume"
+
     for (( ; ; ))
     do
         song=`popupcoming`
@@ -130,7 +135,8 @@ function startplaying {
         fi
 
         echo "$song" > $playing
-        mpv --audio-display=no -really-quiet -input-file=$fifo $@ "$song"
+        mpv --audio-display=no -really-quiet -input-file=$fifo \
+			--volume=`cat "$volume"` $@ "$song"
 	    
         if [[ -a $stoploop ]]; then
             break
@@ -257,6 +263,13 @@ elif [[ "$1" == "skip" ]]; then
 
 elif [[ "$1" == "stop" ]]; then
     exitd 
+
+elif [[ "$1" == "set-volume" ]]; then
+	echo "$2" > "$volume"
+	echo "set volume $2" > "$fifo"
+
+elif [[ "$1" == "get-volume" ]]; then
+	cat "$volume"
 
 elif [[ "$1" == "add" ]]; then
     if [[ $2 == "upcoming" ]]; then

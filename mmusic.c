@@ -51,6 +51,7 @@ int quitting, redraw, lock;
 
 int ispaused;
 int israndom;
+int volume;
 
 /* Functions */
 
@@ -83,6 +84,9 @@ void addupcoming();
 void addnext();
 void removecursor();
 void undoremove();
+
+void increasevolume();
+void decreasevolume();
 
 #include "config.h"
 
@@ -117,6 +121,7 @@ char* currentplayingsong();
 char* currentplaylist();
 void updateispaused();
 void updateisrandom();
+void updatevolume();
 
 void exec(char *args[]) {
 	if (fork() == 0)
@@ -204,6 +209,41 @@ void down() {
 		oldoffset = -1;
 		redraw = 1;
 	}
+}
+
+void updatevolume() {
+	if (volume != 0) {
+		char *args[4] = {"mmusicd", "set-volume", NULL, NULL};
+		args[2] = malloc(sizeof(char) * 4);
+		sprintf(args[2], "%i", volume);
+		exec(args);
+	}
+
+	FILE *volf = popen("mmusicd get-volume", "r");
+	char *volstr  = malloc(sizeof(char) * 3);
+
+	if (!volf) {
+		error("Failed to determine if daemon volume!");
+	} else {
+		fgets(volstr, sizeof(char) * 3, volf);
+		volume = atoi(volstr);
+		pclose(volf);
+	}
+
+}
+
+void increasevolume() {
+	volume += 5;
+	if (volume > 100)
+		volume = 100;
+	updatevolume();
+}
+
+void decreasevolume() {
+	volume -= 5;
+	if (volume < 0)
+		volume = 0;
+	updatevolume();
 }
 
 int len(char *str) {
@@ -562,6 +602,7 @@ void updateisrandom() {
 
 void drawbar() {
 	char *current = currentplayingsong();
+	char *volstr = malloc(sizeof(char) * 4);
 
 	color_set(2, NULL); 
 	clearrow(height);
@@ -569,9 +610,12 @@ void drawbar() {
 		drawnstring(current, height, 0, cmax - 4);
 
 	if (ispaused)
-		drawstring("P", height, cmax - 2);
+		drawstring("P", height, cmax - 7);
 	if (israndom)
-		drawstring("R", height, cmax - 3);
+		drawstring("R", height, cmax - 6);
+
+	sprintf(volstr, "%i%%", volume);
+	drawstring(volstr, height, cmax - strlen(volstr));
 
 	color_set(1, NULL); 
 }
@@ -860,6 +904,7 @@ void *updateloop() {
 
 		updateispaused();
 		updateisrandom();
+		updatevolume();
 
 		redraw = 1;
 		draw();
@@ -922,6 +967,7 @@ int main(int argc, char *argv[]) {
 			break;
 
 		draw();
+		drawbar();
 
 		refresh();
 		d = getch();
