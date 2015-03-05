@@ -48,9 +48,9 @@ function usage {
     echo "      clear                - Clears the upcoming file."
     echo
     echo "      pause                - Pauses playing."
-    echo "      ispaused             - Echos \"yes\" if paused else \"no\" (note: no output if not running)."
+    echo "      is-paused             - Echos \"yes\" if paused else \"no\" (note: no output if not running)."
 	echo "      random               - Toggle random."
-    echo "      israndom             - Echo \"yes\" if random else \"no\"."
+    echo "      is-random             - Echo \"yes\" if random else \"no\"."
     echo
     echo
     echo "      stop                 - Stops the daemon."
@@ -61,6 +61,7 @@ function usage {
     echo "      change playlist      - Stop's song and changes to playlist."
     echo
 	echo "		set-volume n         - Sets volume to n%."
+	echo "		get-volume           - Prints the current volume. Prints nothing if not playing."
 	echo
 	echo
 	echo "MMusicd - A simple mpv controller for playing and managing playlists."
@@ -120,7 +121,7 @@ function startplaying {
     mkfifo $fifo
     touch $israndom
 
-	echo 60 > "$volume"
+	echo 80 > "$volume"
 
     for (( ; ; ))
     do
@@ -135,7 +136,7 @@ function startplaying {
         fi
 
         echo "$song" > $playing
-        mpv --audio-display=no -really-quiet -input-file=$fifo \
+        mpv --audio-display=no -really-quiet --input-file=$fifo \
 			--volume=`cat "$volume"` $@ "$song"
 	    
         if [[ -a $stoploop ]]; then
@@ -265,10 +266,13 @@ elif [[ "$1" == "stop" ]]; then
     exitd 
 
 elif [[ "$1" == "set-volume" ]]; then
-	echo "$2" > "$volume"
+	checktmp
+
 	echo "set volume $2" > "$fifo"
+	echo "$2" > "$volume"
 
 elif [[ "$1" == "get-volume" ]]; then
+	checktmp
 	cat "$volume"
 
 elif [[ "$1" == "add" ]]; then
@@ -325,7 +329,7 @@ elif [[ "$1" == "pause" ]]; then
         touch $pausedfile
     fi
 
-elif [[ "$1" == "ispaused" ]]; then
+elif [[ "$1" == "is-paused" ]]; then
     checktmp
 
     if [[ -a $pausedfile ]]; then
@@ -343,7 +347,7 @@ elif [[ "$1" == "random" ]]; then
         touch $israndom
     fi
 
-elif [[ "$1" == "israndom" ]]; then
+elif [[ "$1" == "is-random" ]]; then
 	checktmp
 
     if [[ -a $israndom ]]; then

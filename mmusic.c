@@ -123,6 +123,8 @@ void updateispaused();
 void updateisrandom();
 void updatevolume();
 
+void setvolume(int v);
+
 void exec(char *args[]) {
 	if (fork() == 0)
 		execvp(args[0], args);
@@ -211,39 +213,36 @@ void down() {
 	}
 }
 
-void updatevolume() {
-	if (volume != 0) {
-		char *args[4] = {"mmusicd", "set-volume", NULL, NULL};
-		args[2] = malloc(sizeof(char) * 4);
-		sprintf(args[2], "%i", volume);
-		exec(args);
-	}
+void setvolume(int v) {
+	if (v > 100) v = 100;
+	if (v < 0) v = 0;
+	char *args[4] = {"mmusicd", "set-volume", NULL, NULL};
+	args[2] = malloc(sizeof(char) * 4);
+	sprintf(args[2], "%i", v);
+	exec(args);
+}
 
+void updatevolume() {
 	FILE *volf = popen("mmusicd get-volume", "r");
-	char *volstr  = malloc(sizeof(char) * 3);
+	char *volstr  = malloc(sizeof(char) * 4);
 
 	if (!volf) {
 		error("Failed to determine if daemon volume!");
 	} else {
-		fgets(volstr, sizeof(char) * 3, volf);
-		volume = atoi(volstr);
+		fgets(volstr, sizeof(char) * 4, volf);
 		pclose(volf);
+		volume = atoi(volstr);
 	}
-
 }
 
 void increasevolume() {
-	volume += 5;
-	if (volume > 100)
-		volume = 100;
 	updatevolume();
+	setvolume(volume + 5);
 }
 
 void decreasevolume() {
-	volume -= 5;
-	if (volume < 0)
-		volume = 0;
 	updatevolume();
+	setvolume(volume - 5);
 }
 
 int len(char *str) {
@@ -284,7 +283,6 @@ void error(char *mesg) {
 	char *error = malloc(sizeof(char) * (strlen(mesg) + 8));
 	sprintf(error, "ERROR: %s", mesg);
 	message(error);
-	fprintf(stderr, "%s\n", error);
 	free(error);
 	getch();
 	clearrow(rmax - 1);
@@ -573,7 +571,7 @@ char *currentplaylist() {
 }
 
 void updateispaused() {
-	FILE *pausedf = popen("mmusicd ispaused", "r");
+	FILE *pausedf = popen("mmusicd is-paused", "r");
 
 	if (!pausedf) {
 		error("Failed to determine if daemon is paused!");
@@ -587,7 +585,7 @@ void updateispaused() {
 }
 
 void updateisrandom() {
-	FILE *randomf = popen("mmusicd israndom", "r");
+	FILE *randomf = popen("mmusicd is-random", "r");
 
 	if (!randomf) {
 		error("Failed to determine if daemon is on random mode!");
